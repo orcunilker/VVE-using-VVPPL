@@ -72,6 +72,15 @@ include_directories (${viennaentitycomponentsystem_SOURCE_DIR}/include)
 include_directories (${viennastrongtype_SOURCE_DIR}/include)
 include_directories (${viennatypelistlibrary_SOURCE_DIR}/include)
 
+#--------------------------------- Vienna Vulkan Post Processing Library ---------------------------------#
+
+# local sibling directory, replace SOURCE_DIR with GIT_REPOSITORY once it is on GitHub
+FetchContent_Declare(viennavulkanpostprocessinglibrary
+                     SOURCE_DIR ${CMAKE_SOURCE_DIR}/../MyVVPP
+)
+FetchContent_MakeAvailable(viennavulkanpostprocessinglibrary)
+include_directories (${viennavulkanpostprocessinglibrary_SOURCE_DIR}/include)
+
 #--------------------------------- Fetch Vienna Vulkan Helper ---------------------------------#
 
 #FetchContent_Declare(viennavulkanhelper

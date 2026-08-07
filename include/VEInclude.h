@@ -36,6 +36,7 @@ inline auto to_vec4 (const aiColor4D &color) {
 
 #include "VSTY.h"
 #include "VECS.h"
+#include "VVPPL.h"
 
 #if (defined(VVE_SINGLE_PRECISION) && defined(VVE_DOUBLE_PRECISION))
 	#error "Both VVE_SINGLE_PRECISION and VVE_DOUBLE_PRECISION are defined!"
