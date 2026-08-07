@@ -57,6 +57,13 @@ add_library (${TARGET} STATIC ${SOURCE} ${HEADERS})
 
 target_compile_features(${TARGET} PUBLIC cxx_std_20)
 
+# VECS's VECSConsoleComm.h uses POSIX close()/usleep() without including
+# <unistd.h> (it comes in transitively on Linux but not on macOS). Force-include
+# it here. PUBLIC so targets linking the engine (e.g. the game) get it too.
+if(NOT MSVC)
+	target_compile_options(${TARGET} PUBLIC -include unistd.h)
+endif()
+
 # Build in parallel under Visual Studio. Not enabled by default.
 if(MSVC AND NOT USE_CLANG)
   target_compile_options(${TARGET} PRIVATE "/MP")

@@ -115,6 +115,9 @@ set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_SAMPLES OFF CACHE BOOL "" FORCE)
+# assimp master builds with -Werror, which trips new AppleClang warnings
+# (-Wunsafe-buffer-usage). Turn that off so the dependency compiles.
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(assimp)
 include_directories (${assimp_SOURCE_DIR}/include)
 
