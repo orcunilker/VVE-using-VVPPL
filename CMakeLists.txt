@@ -66,6 +66,15 @@ FetchContent_Declare(viennaentitycomponentsystem
                      GIT_TAG main
 )
 FetchContent_MakeAvailable(viennaentitycomponentsystem)
+
+# VECS ships a Console tool and its own tests, which do not compile on macOS.
+# The engine only needs the VECS headers, so keep them out of the default build.
+foreach(vecs_target Console testvecs performance testvecscons)
+	if(TARGET ${vecs_target})
+		set_target_properties(${vecs_target} PROPERTIES EXCLUDE_FROM_ALL TRUE)
+	endif()
+endforeach()
+
 FetchContent_MakeAvailable(viennastrongtype)
 FetchContent_MakeAvailable(viennatypelistlibrary)
 include_directories (${viennaentitycomponentsystem_SOURCE_DIR}/include)
