@@ -87,6 +87,7 @@ include_directories (${viennatypelistlibrary_SOURCE_DIR}/include)
 FetchContent_Declare(viennavulkanpostprocessinglibrary
                      SOURCE_DIR ${CMAKE_SOURCE_DIR}/../MyVVPP
 )
+set(VVPPL_USE_VOLK ON CACHE BOOL "" FORCE) # damit vvppl volk verwendet
 FetchContent_MakeAvailable(viennavulkanpostprocessinglibrary)
 include_directories (${viennavulkanpostprocessinglibrary_SOURCE_DIR}/include)
 
