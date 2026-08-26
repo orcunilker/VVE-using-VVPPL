@@ -120,6 +120,7 @@ namespace vve {
 			RegisterSystem(std::make_unique<RendererForward>(m_rendererForwardName, *this, m_windowName) );
 		else 
 			RegisterSystem(std::make_unique<RendererDeferred>(m_rendererDeferredName, *this, m_windowName) );
+		RegisterSystem(std::make_unique<PostProcess>(m_postProcessName, *this));
 	};
 
 	/**

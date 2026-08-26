@@ -93,6 +93,7 @@ namespace vve {
    	class SceneManager;
    	class AssetManager;
 	class SoundManager;
+	class PostProcess;
 
 	//Names
 	using Name = vsty::strong_type_t<std::string, vsty::counter<>>;
@@ -166,3 +167,4 @@ namespace vve {
 #include "VEAssetManager.h"
 //#include "VESoundManagerSDL2.h"
 #include "VESoundManagerSDL3.h"
+#include "VEPostProcess.h"

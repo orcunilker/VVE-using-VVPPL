@@ -28,6 +28,7 @@ set(SOURCE
   VESystem.cpp
   VEWindow.cpp
   VEWindowSDL.cpp
+  VEPostProcess.cpp
   )
 
 set(HEADERS
@@ -51,6 +52,7 @@ set(HEADERS
   ${INCLUDE}/VESystem.h
   ${INCLUDE}/VEWindow.h
   ${INCLUDE}/VEWindowSDL.h
+  ${INCLUDE}/VEPostProcess.h
 )
 
 add_library (${TARGET} STATIC ${SOURCE} ${HEADERS})

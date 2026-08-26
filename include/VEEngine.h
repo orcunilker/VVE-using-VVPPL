@@ -56,7 +56,7 @@ namespace vve {
 		const std::string m_rendererDeferredName = "VVE Renderer Deferred";
 		const std::string m_rendererImguiName = "VVE Renderer Imgui";
 		const std::string m_guiName = "VVE GUI";
-
+		const std::string m_postProcessName = "VVE PostProcess";
 		/**
 		 * @struct MessageCallback
 		 * @brief Encapsulates a callback function for message handling in the engine.
