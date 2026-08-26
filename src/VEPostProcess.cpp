@@ -36,7 +36,9 @@ namespace vve{
             state().m_device,
             state().m_physicalDevice,
             state().m_swapChain.m_swapChainExtent.width,
-            state().m_swapChain.m_swapChainExtent.height);
+            state().m_swapChain.m_swapChainExtent.height,
+            MAX_FRAMES_IN_FLIGHT
+        );
         
         auto& vignette = m_pp->addVignette();
         vignette.intensity = 0.6f;
@@ -87,7 +89,7 @@ namespace vve{
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
             0, 0, nullptr, 0, nullptr, 1, &toGeneral);
 
-        m_pp->apply(cmd, image, image);
+        m_pp->apply(cmd, image, image, state().m_currentFrame);
 
         // zurück, weil ImGui auf Phase 3000 einen renderpass darauf startet
         VkImageMemoryBarrier toAttachment = toGeneral;
