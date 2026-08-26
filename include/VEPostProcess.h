@@ -7,9 +7,15 @@ namespace vve {
         public:
             PostProcess(std::string systemName, Engine& engine);
             ~PostProcess();
+
+            std::unique_ptr<vvppl::PostProcessing> m_pp;
+            std::vector<VkCommandPool> m_commandPools;
             
         private:
+            bool OnInit(Message message);
+            bool OnPrepareNextFrame(Message message);
             bool OnRecordNextFrame(Message message);
+            bool OnQuit(Message message);
         };
 
 }; // namespace vve
