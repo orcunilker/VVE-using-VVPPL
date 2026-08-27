@@ -40,8 +40,20 @@ namespace vve{
             MAX_FRAMES_IN_FLIGHT
         );
         
-        auto& vignette = m_pp->addVignette();
-        vignette.intensity = 0.6f;
+        m_greyscale = &m_pp->addGreyscale();
+        m_greyscale->strength = 0.2f;
+
+        m_vignette = &m_pp->addVignette();
+        m_vignette->intensity = 0.2f;
+
+        m_filmGrain = &m_pp->addFilmGrain();
+        m_filmGrain->intensity = 0.03f;
+
+        m_chromatic = &m_pp->addChromatic();
+        m_chromatic->intensity = 0.07f;
+
+        m_tonemap = &m_pp->addTonemap();
+        m_tonemap->exposure = 0.9f;
 
         return false;
     }
@@ -49,6 +61,9 @@ namespace vve{
     bool PostProcess::OnPrepareNextFrame(Message message) {
         auto[handle, state] = Renderer::GetState(m_registry);
         vkResetCommandPool(state().m_device, m_commandPools[state().m_currentFrame], 0);
+
+        // Filmgrain next seed
+		m_filmGrain->time += 15;
     }
 
     bool PostProcess::OnRecordNextFrame(Message message) {
