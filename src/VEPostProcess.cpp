@@ -7,9 +7,9 @@ namespace vve{
         : System(systenName, engine) {
 
             m_engine.RegisterCallbacks({
-                {this, 2500, "RECORD_NEXT_FRAME", [this](Message& message){ return OnRecordNextFrame(message); }},
                 {this, 4500, "INIT", [this](Message& message){ return OnInit(message); }},
                 {this, 2500, "PREPARE_NEXT_FRAME", [this](Message& message){return OnPrepareNextFrame(message); }},
+                {this, 2500, "RECORD_NEXT_FRAME", [this](Message& message){ return OnRecordNextFrame(message); }},
                 {this, 1000, "QUIT", [this](Message& message){ return OnQuit(message); }}
             });
     };
@@ -31,7 +31,7 @@ namespace vve{
             });
         }
 
-        // die Library bekommt nur Device, Physical Device und die Bildgröße
+        // die Library bekommt nur Device, Physical Device, die Bildgröße und FramesInFlight
         m_pp = std::make_unique<vvppl::PostProcessing>(
             state().m_device,
             state().m_physicalDevice,
@@ -40,6 +40,7 @@ namespace vve{
             MAX_FRAMES_IN_FLIGHT
         );
         
+        // Effekte hinzufügen
         m_greyscale = &m_pp->addGreyscale();
         m_greyscale->strength = 0.2f;
 
