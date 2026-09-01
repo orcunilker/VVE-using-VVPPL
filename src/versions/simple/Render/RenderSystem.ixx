@@ -408,7 +408,7 @@ namespace vve::simple {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
 			.colorAttachmentCount = 1U,
 			.pColorAttachmentFormats = &forward.swapchain.imageFormat,
-			.depthAttachmentFormat = VK_FORMAT_UNDEFINED,
+			.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT,
 		};
 		if (info.Device == VK_NULL_HANDLE || info.DescriptorPool == VK_NULL_HANDLE) {
 			return std::nullopt;
