@@ -101,6 +101,7 @@ target_link_libraries(ViennaVulkanEngine
         assimp::assimp
         glm::glm
         slang::slang
+        vvppl
     PRIVATE
         imgui::imgui
         SDL3::SDL3
