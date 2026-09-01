@@ -89,6 +89,13 @@ export namespace vve::simple {
 				if (sdlExtensions[index] != nullptr) { extensions.push_back(sdlExtensions[index]); }
 			}
 
+			// MoltenVK is a portability driver, so an instance that does not opt in sees no device at all.
+			VkInstanceCreateFlags createFlags{};
+			if (instanceExtensionAvailable(portabilityEnumerationExtensionName)) {
+				extensions.push_back(portabilityEnumerationExtensionName);
+				createFlags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+			}
+
 			layers.clear();
 #ifndef NDEBUG
 			validationEnabled = validationLayerAvailable();
@@ -109,6 +116,7 @@ export namespace vve::simple {
 
 			const VkInstanceCreateInfo createInfo{
 				.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+				.flags = createFlags,
 				.pApplicationInfo = &appInfo,
 				.enabledLayerCount = static_cast<std::uint32_t>(layers.size()),
 				.ppEnabledLayerNames = layers.empty() ? nullptr : layers.data(),
@@ -126,6 +134,21 @@ export namespace vve::simple {
 		void cleanup() { instance.reset(); }
 
 	private:
+		static constexpr char const *portabilityEnumerationExtensionName{"VK_KHR_portability_enumeration"}; ///< Instance extension needed for portability drivers such as MoltenVK.
+
+		/**
+			* @brief Checks whether an optional instance extension is available in this Vulkan installation.
+			*
+			* @param extensionName Instance extension queried in the loader-provided list.
+			* @return True if the extension can be enabled at instance creation.
+			*/
+		[[nodiscard]] bool instanceExtensionAvailable(std::string_view extensionName) const {
+			const auto [result, properties] = context.enumerateInstanceExtensionProperties();
+			return result == vk::Result::eSuccess && std::ranges::any_of(properties, [extensionName](const auto &property) {
+				return std::string_view{property.extensionName} == extensionName;
+			});
+		}
+
 #ifndef NDEBUG
 		static constexpr char const *validationLayerName{"VK_LAYER_KHRONOS_validation"}; ///< Standard Vulkan validation layer.
 
@@ -357,7 +380,11 @@ export namespace vve::simple {
 				.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES,
 				.dynamicRendering = VK_TRUE,
 			};
-			const auto extensions = std::array<char const *, 1U>{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+			// A portability device such as MoltenVK requires its subset extension to be enabled with it.
+			auto extensions = std::vector<char const *>{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+			if (deviceExtensionAvailable(physicalDevice.handle, portabilitySubsetExtensionName)) {
+				extensions.push_back(portabilitySubsetExtensionName);
+			}
 			const VkDeviceCreateInfo createInfo{
 				.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 				.pNext = &dynamicRenderingFeatures,
@@ -386,6 +413,23 @@ export namespace vve::simple {
 			device.reset();
 			graphicsQueue = VK_NULL_HANDLE;
 			presentQueue = VK_NULL_HANDLE;
+		}
+
+	private:
+		static constexpr char const *portabilitySubsetExtensionName{"VK_KHR_portability_subset"}; ///< Device extension reported by portability drivers.
+
+		/**
+			* @brief Checks whether a physical device reports an optional device extension.
+			*
+			* @param physicalDevice Physical device whose extension list is queried.
+			* @param extensionName Device extension being looked up.
+			* @return True if the extension can be enabled at device creation.
+			*/
+		[[nodiscard]] static bool deviceExtensionAvailable(const vk::raii::PhysicalDevice &physicalDevice, std::string_view extensionName) {
+			const auto [result, properties] = physicalDevice.enumerateDeviceExtensionProperties();
+			return result == vk::Result::eSuccess && std::ranges::any_of(properties, [extensionName](const auto &property) {
+				return std::string_view{property.extensionName} == extensionName;
+			});
 		}
 	};
 
