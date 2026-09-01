@@ -1,6 +1,7 @@
 module;
 #include <SDL3/SDL_video.h>
 #include <vulkan/vulkan_core.h>
+#include <VVPPL.h>
 #if __has_include(<backends/imgui_impl_vulkan.h>)
 #include <backends/imgui_impl_vulkan.h>
 #else
@@ -229,6 +230,13 @@ export namespace vve::simple {
 			renderer.sceneResourcesDirty_ = false;
 			renderer.sceneRequiresFullUpload_ = false;
 
+			renderer.postProcess = std::make_unique<vvppl::PostProcessing>(
+				renderer.device.device,
+				renderer.physicalDevice.physicalDevice,
+				renderer.swapchain.extent.width,
+				renderer.swapchain.extent.height,
+				Renderer::framesInFlight);
+
 			return VK_SUCCESS;
 		}
 
@@ -317,6 +325,7 @@ export namespace vve::simple {
 		void cleanup() {
 			auto &renderer = static_cast<Renderer &>(*this);
 			if (renderer.device.device != VK_NULL_HANDLE) { (void)vkDeviceWaitIdle(renderer.device.device); }
+			renderer.postProcess.reset();
 			renderer.recordedPassOrder.clear();
 			for (auto mesh = renderer.meshes.rbegin(); mesh != renderer.meshes.rend(); ++mesh) { mesh->cleanup(); }
 			renderer.meshes.clear();
@@ -410,6 +419,8 @@ export namespace vve::simple {
 
 			result = renderer.frameSync.create(renderer.device.device, Renderer::framesInFlight, static_cast<std::uint32_t>(renderer.swapchain.images.size()));
 			if (result != VK_SUCCESS) { return result; }
+
+			if (renderer.postProcess) { renderer.postProcess->resize(renderer.swapchain.extent.width, renderer.swapchain.extent.height); }
 
 			renderer.currentFrame = 0U;
 			renderer.lastRenderedImageIndex.reset();

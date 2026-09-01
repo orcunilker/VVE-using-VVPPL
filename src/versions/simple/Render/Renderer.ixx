@@ -2,6 +2,7 @@ module;
 #include <new>
 #include <SDL3/SDL_video.h>
 #include <vulkan/vulkan_core.h>
+#include <VVPPL.h>
 
 export module VEEngine.Simple.Renderer;
 import std;
@@ -116,6 +117,7 @@ export namespace vve::simple {
 		std::array<Mat4, kMaxShadowedSpotLights> spotLightViewProjs{}; ///< CPU spot-light matrices prepared for later multi-shadow rendering.
 		std::size_t spotLightViewProjCount{}; ///< Number of active spot-light matrices copied from the current scene.
 		std::optional<std::uint32_t> lastRenderedImageIndex{}; ///< Swapchain image index from the last acquired, rendered, and presented frame.
+		std::unique_ptr<vvppl::PostProcessing> postProcess{}; ///< Owned post-processing chain applied to the finished color image.
 
 		~ForwardRenderer() { cleanup(); }
 

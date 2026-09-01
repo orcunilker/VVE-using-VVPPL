@@ -84,7 +84,7 @@ target_sources(SimpleForwardRendererTests
          "${CMAKE_SOURCE_DIR}/src/versions/simple/Engine.ixx"
 )
 add_dependencies(SimpleForwardRendererTests ViennaVulkanEngine)
-target_link_libraries(SimpleForwardRendererTests PRIVATE "$<TARGET_FILE:ViennaVulkanEngine>" glm::glm SDL3::SDL3 Vulkan::Vulkan slang::slang)
+target_link_libraries(SimpleForwardRendererTests PRIVATE "$<TARGET_FILE:ViennaVulkanEngine>" glm::glm SDL3::SDL3 Vulkan::Vulkan slang::slang vvppl)
 add_test(NAME SimpleForwardRendererTests COMMAND SimpleForwardRendererTests)
 vve_set_output_dirs(SimpleForwardRendererTests)
 add_executable(ShaderReflectionBindingsTests ShaderReflectionBindingsTests.cpp)
@@ -182,7 +182,7 @@ target_sources(GuiSystemTests
          "${CMAKE_SOURCE_DIR}/src/versions/simple/Engine.ixx"
 )
 add_dependencies(GuiSystemTests ViennaVulkanEngine)
-target_link_libraries(GuiSystemTests PRIVATE "$<TARGET_FILE:ViennaVulkanEngine>" glm::glm imgui::imgui SDL3::SDL3 Vulkan::Vulkan slang::slang)
+target_link_libraries(GuiSystemTests PRIVATE "$<TARGET_FILE:ViennaVulkanEngine>" glm::glm imgui::imgui SDL3::SDL3 Vulkan::Vulkan slang::slang vvppl)
 add_test(NAME GuiSystemTests COMMAND GuiSystemTests)
 vve_set_output_dirs(GuiSystemTests)
 vve_add_engine_test(SceneSystemTests)
