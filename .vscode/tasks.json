@@ -57,7 +57,7 @@
                 "cwd": "${workspaceFolder}"
             },
             "problemMatcher": "$msCompile"
-        },
+        },/*
         {
             "label": "Configure Mac release",
             "type": "shell",
@@ -147,7 +147,7 @@
                 "cwd": "${workspaceFolder}"
             },
             "problemMatcher": "$msCompile"
-        },
+        },*/
         {
             "label": "Build Mac debug",
             "type": "shell",
@@ -167,7 +167,7 @@
                 "kind": "build",
                 "isDefault": true
             }
-        },
+        }/*,
         {
             "label": "Build Mac release",
             "type": "shell",
@@ -251,6 +251,6 @@
                 "cwd": "${workspaceFolder}"
             },
             "problemMatcher": "$msCompile"
-        }
+        }*/
     ]
 }
