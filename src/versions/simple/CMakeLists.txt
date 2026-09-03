@@ -7,12 +7,10 @@ target_sources(ViennaVulkanEngine
          Math.ixx
          Handle.ixx
          Vector.ixx
-         ECS.ixx
          Types.ixx
          Graph.ixx
          Window.ixx
          Assets.ixx
-         Resources.ixx
          Shaders.ixx
          Render/RenderPassContract.ixx
          Render/RenderPass.ixx
@@ -40,9 +38,6 @@ target_sources(ViennaVulkanEngine
          Render/RenderResources.ixx
          Render/Renderer.ixx
          Render/RenderSystem.ixx
-         SceneGraph.ixx
-         WindowSystem.ixx
-         World.ixx
 )
 
 set(VVE_SIMPLE_FORWARD_SHADER "${CMAKE_CURRENT_LIST_DIR}/shaders/simple_forward.slang")

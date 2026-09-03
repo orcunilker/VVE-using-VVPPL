@@ -65,8 +65,8 @@ export namespace vve {
 
 		[[nodiscard]] EngineStateHandle makeEngineState(EngineStartupOptions options);
 		[[nodiscard]] auto engineVersionMajor(const EngineState &state)								-> std::uint32_t;
-		[[nodiscard]] auto engineGetVersionMajor(const EngineState &state) noexcept				-> std::expected<int, Error>;
 		[[nodiscard]] auto engineVersionName(const EngineState &state)								-> std::string_view;
+		[[nodiscard]] auto engineEcs(EngineState &state)												-> ECS &;
 		[[nodiscard]] auto engineAssets(EngineState &state)											-> void *;
 		[[nodiscard]] auto engineGui(EngineState &state)												-> void *;
 		[[nodiscard]] auto engineWindowSystem(EngineState &state)									-> void *;
@@ -96,7 +96,6 @@ export namespace vve {
 		explicit Engine(TOptions &&...options);
 
 		[[nodiscard]] auto versionMajor() const												-> std::uint32_t;
-		[[nodiscard]] auto getVersionMajor() const noexcept								-> std::expected<int, Error>;
 		[[nodiscard]] auto versionName() const													-> std::string_view;
 		[[nodiscard]] auto world();
 		[[nodiscard]] auto world() const;
@@ -134,7 +133,7 @@ export namespace vve {
 		static void appendUserSystemTasks(detail::EngineStartupOptions &options, const std::tuple<TUserSystems...> &systems);
 
 		detail::EngineStateHandle state_;								///< Opaque owning engine implementation state.
-		ECS ecs_{};																///< Public ECS container referenced by world views.
+		ECS &ecs_;																///< ECS owned by the implementation, referenced by world views.
 		AssetSystem assets_;												///< Public asset-system wrapper referenced by world views.
 		GuiSystem gui_;														///< Public GUI wrapper referenced by world views.
 		WindowSystem window_system_;										///< Public window wrapper referenced by world views.
@@ -264,7 +263,7 @@ export namespace vve {
 
 	template <typename... TSystems>
 	Engine<TSystems...>::Engine(detail::EngineStartupOptions options)
-		: state_{detail::makeEngineState(std::move(options))}, ecs_{},
+		: state_{detail::makeEngineState(std::move(options))}, ecs_{detail::engineEcs(*state_)},
 		  assets_{detail::engineAssets(*state_)}, gui_{detail::engineGui(*state_)},
 		  window_system_{detail::engineWindowSystem(*state_)}, render_system_{detail::engineRenderSystem(*state_)} {}
 
@@ -282,9 +281,6 @@ export namespace vve {
 		return detail::engineVersionMajor(*state_);
 	}
 
-	template <typename... TSystems> std::expected<int, Error> Engine<TSystems...>::getVersionMajor() const noexcept {
-		return detail::engineGetVersionMajor(*state_);
-	}
 
 	template <typename... TSystems> std::string_view Engine<TSystems...>::versionName() const {
 		return detail::engineVersionName(*state_);
