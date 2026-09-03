@@ -1,12 +1,8 @@
 {
-	"C_Cpp.errorSquiggles": "disabled",
+	"C_Cpp.errorSquiggles": "enabled",
+	"C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
 	"cmake.useCMakePresets": "never",
 	"cmake.configureOnOpen": false,
 	"cmake.showSystemKits": true,
-	"cmake.buildDirectory": "${workspaceFolder}/build/vscode-${variant:buildType}",
-	"cmake.configureSettings": {
-		"VVE_ENGINE_IMPLEMENTATION_NAMESPACE": "v5",
-		"VVE_VCPKG_TRIPLET": "x64-windows",
-		"VVE_DEFAULT_VULKAN_ICD": "system"
-	}
+	"cmake.buildDirectory": "${workspaceFolder}/build/vscode-${variant:buildType}"
 }
