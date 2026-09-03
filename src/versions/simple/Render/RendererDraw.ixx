@@ -762,17 +762,40 @@ export namespace vve::simple {
 			if (renderer.guiRecord_) { renderer.guiRecord_(commandBuffer); }
 
 			vkCmdEndRendering(commandBuffer);
+
+			VkAccessFlags postProcessDstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+			VkImageLayout postProcessNewLayout = VK_IMAGE_LAYOUT_GENERAL;
+			VkPipelineStageFlags postProcessStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+			if (renderer.postProcess) {
+				const VkImageMemoryBarrier toGeneral{
+					.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+					.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+					.dstAccessMask = postProcessDstAccessMask,
+					.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+					.newLayout = postProcessNewLayout,
+					.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+					.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+					.image = renderer.swapchain.images[imageIndex],
+					.subresourceRange = colorRange,
+				};
+				vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+											postProcessStage, 0U, 0U, nullptr, 0U, nullptr, 1U, &toGeneral);
+
+				renderer.postProcess->apply(commandBuffer, renderer.swapchain.images[imageIndex],
+													 renderer.swapchain.images[imageIndex], frameIndex);
+			}
+
 			const VkImageMemoryBarrier presentBarrier{
 				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-				.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-				.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				.srcAccessMask = renderer.postProcess ? postProcessDstAccessMask : VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				.oldLayout = renderer.postProcess ? postProcessNewLayout : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 				.image = renderer.swapchain.images[imageIndex],
 				.subresourceRange = colorRange,
 			};
-			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			vkCmdPipelineBarrier(commandBuffer, renderer.postProcess ? postProcessStage : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 										VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0U, 0U, nullptr, 0U, nullptr, 1U, &presentBarrier);
 			result = vkEndCommandBuffer(commandBuffer);
 			if (result != VK_SUCCESS) { return result; }

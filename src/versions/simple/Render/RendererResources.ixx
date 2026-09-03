@@ -236,6 +236,8 @@ export namespace vve::simple {
 				renderer.swapchain.extent.width,
 				renderer.swapchain.extent.height,
 				Renderer::framesInFlight);
+			// Effekte
+			renderer.postProcess->addVignette().intensity = 0.6F;
 
 			return VK_SUCCESS;
 		}
