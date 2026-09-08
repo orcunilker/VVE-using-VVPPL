@@ -1,5 +1,6 @@
 module;
 #include <vulkan/vulkan_core.h>
+#include <VVPPL.h>
 
 module VEEngine.Simple.Renderer;
 import std;
@@ -292,17 +293,37 @@ namespace vve::simple {
 		if (guiRecord_) { guiRecord_(commandBuffer); }
 
 		vkCmdEndRendering(commandBuffer);
+
+		// The library braucht General layout, und returned es als General
+		if (postProcess) {
+			const VkImageMemoryBarrier toGeneral{
+				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT,
+				.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				.newLayout = VK_IMAGE_LAYOUT_GENERAL,
+				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+				.image = swapchain.images[imageIndex],
+				.subresourceRange = colorRange,
+			};
+			vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+										VK_PIPELINE_STAGE_TRANSFER_BIT, 0U, 0U, nullptr, 0U, nullptr, 1U, &toGeneral);
+
+			postProcess->apply(commandBuffer, swapchain.images[imageIndex], swapchain.images[imageIndex], frameIndex);
+		}
+
 		const VkImageMemoryBarrier presentBarrier{
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.srcAccessMask = postProcess ? VK_ACCESS_TRANSFER_WRITE_BIT : VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.oldLayout = postProcess ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 			.image = swapchain.images[imageIndex],
 			.subresourceRange = colorRange,
 		};
-		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		vkCmdPipelineBarrier(commandBuffer, postProcess ? VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 									VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0U, 0U, nullptr, 0U, nullptr, 1U, &presentBarrier);
 		result = vkEndCommandBuffer(commandBuffer);
 		if (result != VK_SUCCESS) { return result; }

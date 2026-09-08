@@ -1,6 +1,7 @@
 module;
 #include <SDL3/SDL_video.h>
 #include <vulkan/vulkan_core.h>
+#include <VVPPL.h>
 #if __has_include(<backends/imgui_impl_vulkan.h>)
 #include <backends/imgui_impl_vulkan.h>
 #else
@@ -158,6 +159,17 @@ namespace vve::simple {
 		sceneResourcesDirty_ = false;
 		sceneRequiresFullUpload_ = false;
 
+		// Die library wirft, die engine arbeitet mit std::expected und VKResult
+		try {
+			postProcess = std::make_unique<vvppl::PostProcessing>(device.device, physicalDevice.physicalDevice,
+								swapchain.extent.width, swapchain.extent.height, framesInFlight);
+			
+			postProcess->addVignette().intensity = 0.6F;
+		} catch (const std::exception &) {
+			cleanup();
+			return VK_ERROR_INITIALIZATION_FAILED;
+		}
+
 		return VK_SUCCESS;
 	}
 
@@ -262,6 +274,7 @@ namespace vve::simple {
 			vkDestroyDescriptorPool(device.device, imguiDescriptorPool_, nullptr);
 			imguiDescriptorPool_ = VK_NULL_HANDLE;
 		}
+		postProcess.reset();
 		descriptorPool.cleanup();
 		uploadedTextures_.clear();
 		sceneGeometryDirty_.clear();
@@ -332,6 +345,8 @@ namespace vve::simple {
 
 		result = depthImage.create(allocator, device.device, swapchain.extent, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 		if (result != VK_SUCCESS) { return result; }
+
+		if (postProcess) { postProcess->resize(swapchain.extent.width, swapchain.extent.height); }
 
 		VulkanVertexInputDescription vertexInput{};
 		result = graphicsPipeline.create(device.device, pipelineLayout.pipelineLayout, vertShaderModule.shaderModule, "vertexMain",
