@@ -1,6 +1,5 @@
 module VEEngine;
 import std;
-import VEEngine.Simple;
 
 namespace vve {
 
@@ -10,17 +9,17 @@ namespace vve {
 			template <typename... TOptions>
 			explicit EngineState(TOptions &&...options) : impl{std::forward<TOptions>(options)...} {}
 
-			VVE_ENGINE_IMPLEMENTATION_NAMESPACE::Engine impl{};	///< Selected engine implementation owned by the facade.
+			EngineImpl impl{};	///< Selected engine implementation owned by the facade.
 		};																///< Concrete state hidden from the exported interface.
 
 		/// @brief Converts facade startup windows into selected implementation descriptors.
 		[[nodiscard]] auto implementationWindows(const std::vector<EngineWindowSetup> &windows)
-			-> VVE_ENGINE_IMPLEMENTATION_NAMESPACE::Windows {
-			auto result = VVE_ENGINE_IMPLEMENTATION_NAMESPACE::Windows{};
+			-> detail::WindowsImpl {
+			auto result = detail::WindowsImpl{};
 			result.value.clear();
 			result.value.reserve(windows.size());
 			for (const auto &window : windows) {
-				result.value.push_back(VVE_ENGINE_IMPLEMENTATION_NAMESPACE::WindowDesc{
+				result.value.push_back(detail::WindowDescImpl{
 					.id = window.id,
 					.title = window.title,
 					.extent = window.extent,
@@ -34,16 +33,8 @@ namespace vve {
 			return result;
 		}
 
-		/// @brief Converts facade user-system task names into selected implementation descriptors.
-		[[nodiscard]] auto implementationUserSystemTasks(const Vector<ObjectName> &tasks)
-			-> VVE_ENGINE_IMPLEMENTATION_NAMESPACE::UserSystemTasks {
-			auto result = VVE_ENGINE_IMPLEMENTATION_NAMESPACE::UserSystemTasks{};
-			for (const auto &task : tasks) { result.value.push_back(task); }
-			return result;
-		}
-
 		/// @brief Converts selected implementation window snapshots into facade frame data.
-		[[nodiscard]] auto facadeWindowFrame(const VVE_ENGINE_IMPLEMENTATION_NAMESPACE::WindowFrameData &frame)
+		[[nodiscard]] auto facadeWindowFrame(const detail::WindowFrameDataImpl &frame)
 			-> WindowFrameData {
 			auto result = WindowFrameData{};
 			result.windows.reserve(frame.windows.size());
@@ -66,13 +57,12 @@ namespace vve {
 
 		/// @brief Creates the selected engine implementation from facade-owned startup options.
 		EngineStateHandle makeEngineState(EngineStartupOptions options) {
-			const auto tasks = implementationUserSystemTasks(options.user_system_tasks);
 			if (options.windows.has_value()) {
 				return EngineStateHandle{
-					new EngineState{std::move(options.config), implementationWindows(*options.windows), tasks},
+					new EngineState{std::move(options.config), implementationWindows(*options.windows)},
 					EngineStateDeleter{}};
 			}
-			return EngineStateHandle{new EngineState{std::move(options.config), tasks}, EngineStateDeleter{}};
+			return EngineStateHandle{new EngineState{std::move(options.config)}, EngineStateDeleter{}};
 		}
 
 		/// @brief Returns the selected implementation major version.
@@ -85,17 +75,17 @@ namespace vve {
 		/// @brief Returns the entity/component storage owned by the selected implementation.
 		ECS &engineEcs(EngineState &state) { return state.impl.ecs(); }
 
-		/// @brief Returns an erased pointer to the selected asset system.
-		void *engineAssets(EngineState &state) { return std::addressof(state.impl.assets()); }
+		/// @brief Returns the selected asset system.
+		detail::AssetSystemImpl &engineAssets(EngineState &state) { return state.impl.assets(); }
 
-		/// @brief Returns an erased pointer to the selected GUI system.
-		void *engineGui(EngineState &state) { return std::addressof(state.impl.gui()); }
+		/// @brief Returns the selected GUI system.
+		detail::GuiSystemImpl &engineGui(EngineState &state) { return state.impl.gui(); }
 
-		/// @brief Returns an erased pointer to the selected window system.
-		void *engineWindowSystem(EngineState &state) { return std::addressof(state.impl.windowSystem()); }
+		/// @brief Returns the selected window system.
+		detail::WindowSystemImpl &engineWindowSystem(EngineState &state) { return state.impl.windowSystem(); }
 
-		/// @brief Returns an erased pointer to the selected render system.
-		void *engineRenderSystem(EngineState &state) { return std::addressof(state.impl.renderSystem()); }
+		/// @brief Returns the selected render system.
+		detail::RenderSystemImpl &engineRenderSystem(EngineState &state) { return state.impl.renderSystem(); }
 
 		/// @brief Initializes the selected engine implementation.
 		std::expected<void, Error> engineInit(EngineState &state) { return state.impl.init(); }
@@ -105,19 +95,13 @@ namespace vve {
 
 		/// @brief Captures facade window frame data from the selected implementation.
 		WindowFrameData engineWindowFrame(EngineState &state) {
-			return facadeWindowFrame(VVE_ENGINE_IMPLEMENTATION_NAMESPACE::WindowFrameData{
+			return facadeWindowFrame(detail::WindowFrameDataImpl{
 				.windows = state.impl.windowSystem().snapshot()});
 		}
 
 		/// @brief Renders one frame through the selected implementation.
 		std::expected<void, Error> engineRenderFrame(EngineState &state) {
 			return state.impl.renderFrame();
-		}
-
-		/// @brief Writes selected implementation debug graphs.
-		std::expected<void, Error>
-		engineWriteDebugGraphs(const EngineState &state, const std::filesystem::path &directory) {
-			return state.impl.writeDebugGraphs(directory);
 		}
 
 	} // namespace detail

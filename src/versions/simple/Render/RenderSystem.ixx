@@ -9,36 +9,36 @@ module;
 
 export module VEEngine.Simple:RenderSystem;
 import std;
-export import :RenderPass;
+export import VEEngine.Simple.Types;
 import :Window;
 import VEEngine.Simple.Vulkan;
 import VEEngine.Simple.Mesh;
 import VEEngine.Simple.Scene;
 import VEEngine.Simple.Renderer;
-import :RenderSystemScene;
-import :RenderSystemDebug;
-import :RenderSystemObjects;
 export import :RenderResources;
 
 /// @file
-/// @brief Simple render coordinator: renderer selection, render-graph construction, and scene mirroring.
+/// @brief Simple render coordinator: renderer backend ownership and scene mirroring.
 
 namespace vve::simple::detail {
 
-	/// @brief Orders string views for deterministic graph node lookup.
-	struct StringViewLess {
-		[[nodiscard]] inline bool operator()(std::string_view lhs, std::string_view rhs) const noexcept {
-			const auto count = std::min(lhs.size(), rhs.size());
-			for (std::size_t index{}; index < count; ++index) {
-				const auto left = static_cast<unsigned char>(lhs[index]);
-				const auto right = static_cast<unsigned char>(rhs[index]);
-				if (left != right) { return left < right; }
-			}
-			return lhs.size() < rhs.size();
-		}
-	};
-
-	using RenderPassHandleMap = std::map<std::string_view, RenderPassHandle, StringViewLess>;	///< Pass-name map.
+	/// @brief Builds the backend model matrix from the public transform contract.
+	[[nodiscard]] inline auto modelMatrix(Transform transform) -> Mat4 {
+		const auto q = transform.rotation.value;
+		auto rotation = identityMat4();
+		rotation[0][0] = one() - static_cast<Scalar>(2) * (q.y * q.y + q.z * q.z);
+		rotation[0][1] = static_cast<Scalar>(2) * (q.x * q.y + q.w * q.z);
+		rotation[0][2] = static_cast<Scalar>(2) * (q.x * q.z - q.w * q.y);
+		rotation[1][0] = static_cast<Scalar>(2) * (q.x * q.y - q.w * q.z);
+		rotation[1][1] = one() - static_cast<Scalar>(2) * (q.x * q.x + q.z * q.z);
+		rotation[1][2] = static_cast<Scalar>(2) * (q.y * q.z + q.w * q.x);
+		rotation[2][0] = static_cast<Scalar>(2) * (q.x * q.z + q.w * q.y);
+		rotation[2][1] = static_cast<Scalar>(2) * (q.y * q.z - q.w * q.x);
+		rotation[2][2] = one() - static_cast<Scalar>(2) * (q.x * q.x + q.y * q.y);
+		auto model = translate(identityMat4(), transform.translation.value);
+		model = multiply(model, rotation);
+		return scale(model, transform.scale.value);
+	}
 
 } // namespace vve::simple::detail
 
@@ -64,33 +64,56 @@ export namespace vve::simple {
 	};
 
 
-	/// @brief Renderer descriptor used only for graph construction in the simple stub.
-	struct RendererDescriptor {
-		using HandleType = RendererHandle;											///< Descriptor handle type.
-		RendererHandle handle{};														///< Stable renderer descriptor handle.
-		RendererId id{.value = "stub"};												///< Renderer id chosen by the application.
-		bool shadow_maps{};																///< Stubs do not create shadow maps.
-		std::span<const RenderPassContract> passes{};							///< Stub graph nodes.
-	};
-
 	/// @brief simple render facade coordinating the renderer backend and CPU render scene.
-	class RenderSystem : public RenderSystemScene<RenderSystem>, public RenderSystemDebug<RenderSystem>,
-							 public RenderSystemObjects<RenderSystem> {
+	class RenderSystem {
 	public:
 		RenderSystem() = default;
 		explicit RenderSystem(ImportedAssetReadAccess imported_assets);
-		[[nodiscard]] auto createRenderer(RendererId id) const																-> std::expected<RendererDescriptor, Error>;
-		[[nodiscard]] std::expected<RenderGraph, Error>
-		buildRenderGraph(std::span<const std::span<const RenderPassContract>> pass_lists) const;
 		[[nodiscard]] auto instantiateScene(SceneHandle scene, SceneInstantiationOptions options = {})	-> std::expected<RenderSceneInstanceHandle, Error>;
+
+		// Object state, cameras, and lights mirrored into the renderer CPU scene (RenderSystemScene.cpp).
+		[[nodiscard]] auto setObjectUnlit(RenderObjectHandle handle, bool unlit)										-> std::expected<void, Error>;
+		[[nodiscard]] auto setObjectCastsShadow(RenderObjectHandle handle, bool casts_shadow)					-> std::expected<void, Error>;
+		[[nodiscard]] auto setObjectVisible(RenderObjectHandle handle, bool visible)									-> std::expected<void, Error>;
+		[[nodiscard]] auto objectVisible(RenderObjectHandle handle) const												-> std::expected<bool, Error>;
+		[[nodiscard]] auto setObjectTransform(RenderObjectHandle handle, Transform transform)					-> std::expected<void, Error>;
+		[[nodiscard]] auto objectTransform(RenderObjectHandle handle) const											-> std::expected<Transform, Error>;
+		auto setCamera(Camera camera, PixelExtent extent)																	-> void;
+		auto setDirectionalLight(Direction direction_to_light, LinearColor color, LightIntensity intensity, LinearColor ambient) -> void;
+		auto addDirectionalLight(Direction direction_to_light, LinearColor color, LightIntensity intensity, LinearColor ambient) -> void;
+		auto setPointLight(Position position, LinearColor color, LightIntensity intensity, LightRange range)	-> void;
+		auto setPointLight(Position position, LinearColor color, LightIntensity intensity, LightRange range, LinearColor ambient) -> void;
+		auto addPointLight(Position position, LinearColor color, LightIntensity intensity, LightRange range)	-> void;
+		auto addPointLight(Position position, LinearColor color, LightIntensity intensity, LightRange range, LinearColor ambient) -> void;
+		auto setSpotLight(Position position, Direction direction, LinearColor color, LightIntensity intensity, LightRange range, SpotConeAngle cone) -> void;
+		auto setSpotLight(Position position, Direction direction, LinearColor color, LightIntensity intensity, LightRange range, SpotConeAngle cone, LinearColor ambient) -> void;
+		auto addSpotLight(Position position, Direction direction, LinearColor color, LightIntensity intensity, LightRange range, SpotConeAngle cone) -> void;
+		auto addSpotLight(Position position, Direction direction, LinearColor color, LightIntensity intensity, LightRange range, SpotConeAngle cone, LinearColor ambient) -> void;
+
+		// Primitive objects, object removal, and loaded-scene lifecycle (RenderSystemObjects.cpp).
+		[[nodiscard]] auto removeObject(RenderObjectHandle handle)																-> std::expected<void, Error>;
+		[[nodiscard]] auto sceneInstanceObjects(RenderSceneInstanceHandle instance) const						-> std::expected<Vector<RenderObjectHandle>, Error>;
+		[[nodiscard]] auto objectSourceScene(RenderObjectHandle handle) const										-> std::expected<RenderSceneInstanceHandle, Error>;
+		[[nodiscard]] auto objectSourceNode(RenderObjectHandle handle) const											-> std::expected<NodeHandle, Error>;
+		[[nodiscard]] auto removeSceneInstance(RenderSceneInstanceHandle instance)									-> std::expected<void, Error>;
+		[[nodiscard]] auto removeScene(SceneHandle handle)																	-> std::expected<void, Error>;
+		[[nodiscard]] auto purgeUnusedAssets()																						-> std::size_t;
+		[[nodiscard]] auto addPlane(Vec2 half_extent, LinearColor color, Transform transform = {})			-> std::expected<RenderObjectHandle, Error>;
+		[[nodiscard]] auto addCuboid(Vec3 minimum, Vec3 maximum, LinearColor color, Transform transform = {}) -> std::expected<RenderObjectHandle, Error>;
+		[[nodiscard]] auto addTriangleMesh(Vector<Vec3> positions, Vector<std::uint32_t> indices, LinearColor color, Transform transform = {}) -> std::expected<RenderObjectHandle, Error>;
+		[[nodiscard]] auto setObjectMeshPositions(RenderObjectHandle handle, Vector<Vec3> positions)			-> std::expected<void, Error>;
+		[[nodiscard]] auto addTexturedCuboid(Vec3 minimum, Vec3 maximum, std::filesystem::path base_color_texture, Transform transform = {}) -> std::expected<RenderObjectHandle, Error>;
+		auto clearScene()																												-> void;
+		auto loadScene(Scene scene)																									-> SceneHandle;
+
 		auto waitIdle() -> void;
 		/// @brief Stores the borrowed GUI system for later forwarding to renderer backends.
 		auto setGuiSystem(void *gui)																								-> void;
 		auto setGuiRecordSink(std::function<void(VkCommandBuffer)> sink)												-> void;
 		[[nodiscard]] auto initialize(SDL_Window *window, RendererId id = {})												-> std::expected<void, Error>;
 		[[nodiscard]] auto makeGuiInitInfo() const																			-> std::optional<ImGui_ImplVulkan_InitInfo>;
-		[[nodiscard]] auto backend()																								-> SelectedRenderer &;
-		[[nodiscard]] auto backend() const																						-> const SelectedRenderer &;
+		[[nodiscard]] auto forward()																								-> ForwardRenderer &;
+		[[nodiscard]] auto forward() const																						-> const ForwardRenderer &;
 		auto shutdown()																													-> void;
 		[[nodiscard]] auto initialized() const																					-> bool;
 		[[nodiscard]] auto sceneMeshCount() const																					-> std::size_t;
@@ -104,6 +127,9 @@ export namespace vve::simple {
 		[[nodiscard]] auto sceneIndexCount() const																				-> std::size_t;
 		[[nodiscard]] auto sceneShadowLightMetaCount() const														-> std::size_t;
 		[[nodiscard]] auto sceneShadowLightMeta(std::size_t index) const										-> std::optional<ShadowLightMeta>;
+		[[nodiscard]] auto shadowDepthSamples() const																	-> std::span<const RenderShadowDepthSample>;
+		auto setGpuDebugReadback(bool enabled)																			-> void;
+		[[nodiscard]] auto captureFrameToPng(const std::filesystem::path &output_path)								-> std::expected<void, Error>;
 		[[nodiscard]] auto hasSceneCamera() const																					-> bool;
 		[[nodiscard]] auto hasSceneDirectionalLight() const																	-> bool;
 		[[nodiscard]] auto hasScenePointLight() const																			-> bool;
@@ -115,18 +141,7 @@ export namespace vve::simple {
 		[[nodiscard]] auto lastRenderedWindowCount() const																		-> std::size_t;
 
 	private:
-		template<typename>
-		friend struct RenderSystemScene;
-		template<typename>
-		friend struct RenderSystemDebug;
-		template<typename>
-		friend struct RenderSystemObjects;
-
-		[[nodiscard]] static std::expected<void, Error>
-		addPass(RenderGraph &graph, detail::RenderPassHandleMap &handles, const RenderPassContract &pass);
-		[[nodiscard]] static std::expected<void, Error>
-		addDependencies(RenderGraph &graph, const detail::RenderPassHandleMap &handles,
-								std::span<const RenderPassContract> passes);
+		[[nodiscard]] auto appendBackendObject(RenderInstanceHandle instance_handle)							-> std::expected<std::size_t, Error>;
 		[[nodiscard]] auto registerRenderObject(RenderInstanceHandle instance, std::size_t backend_index)	-> RenderObjectHandle;
 		[[nodiscard]] auto findRenderObject(RenderObjectHandle handle) const
 			-> std::optional<std::pair<RenderInstanceHandle, std::size_t>>;
@@ -141,11 +156,9 @@ export namespace vve::simple {
 		[[nodiscard]] auto acquireRenderMesh(MeshHandle imported_mesh)									-> std::optional<RenderMeshHandle>;
 		[[nodiscard]] auto acquireRenderMaterial(MaterialHandle imported_material)						-> RenderMaterialHandle;
 		[[nodiscard]] auto importedMaterialTextures(MaterialHandle material) const					-> std::optional<Vector<TextureHandle>>;
-		[[nodiscard]] auto forward()																					-> ForwardRenderer &;
-		[[nodiscard]] auto forward() const																				-> const ForwardRenderer &;
 
 		RenderScene scene_{};															///< Active CPU render scene.
-		SelectedRenderer renderer_{};													///< Selected renderer backend.
+		ForwardRenderer renderer_{};													///< Forward renderer backend.
 		ImportedAssetReadAccess imported_assets_{};								///< Borrowed asset-scene queries.
 		void *guiSystem_{nullptr};													///< Non-owning, type-erased GUI system pointer for later renderer wiring.
 		std::unordered_map<MeshHandle, RenderMeshHandle, HandleHash<MeshHandle>> imported_render_meshes_{};	///< Imported mesh cache.
@@ -176,82 +189,11 @@ namespace vve::simple {
 	inline RenderSystem::RenderSystem(ImportedAssetReadAccess imported_assets)
 		: imported_assets_{std::move(imported_assets)} {}
 
-	/// @brief Accepts the historical forward id and the new stub id.
-	inline auto RenderSystem::createRenderer(RendererId id) const											-> std::expected<RendererDescriptor, Error>{
-		if (id.value == "forward" || id.value == "stub" || id.value.empty()) {
-			return RendererDescriptor{.handle = makeCounterHandle<RendererHandle>(),
-												.id = std::visit([](const auto &renderer) { return renderer.id(); }, renderer_),
-												.shadow_maps = false,
-												.passes = std::visit([](const auto &renderer) { return renderer.passes(); }, renderer_)};
-		}
-		return std::unexpected(Error::invalid_argument);
-	}
+	/// @brief Returns the forward renderer backend.
+	inline auto RenderSystem::forward()																			-> ForwardRenderer &{ return renderer_; }
 
-
-	/// @brief Builds a render graph from several pass lists.
-	inline std::expected<RenderGraph, Error>
-	RenderSystem::buildRenderGraph(std::span<const std::span<const RenderPassContract>> pass_lists) const {
-		auto graph = RenderGraph{};
-		auto handles = detail::RenderPassHandleMap{};
-		for (const auto passes : pass_lists) {
-			for (const auto &pass : passes) {
-				if (const auto result = addPass(graph, handles, pass); !result) { return std::unexpected(result.error()); }
-			}
-		}
-		for (const auto passes : pass_lists) {
-			if (const auto result = addDependencies(graph, handles, passes); !result) { return std::unexpected(result.error()); }
-		}
-		return graph;
-	}
-
-	/// @brief Adds one graph node, reusing milestone names shared by systems.
-	inline std::expected<void, Error>
-	RenderSystem::addPass(RenderGraph &graph, detail::RenderPassHandleMap &handles, const RenderPassContract &pass) {
-		if (pass.name.empty()) { return std::unexpected(Error::invalid_argument); }
-		if (handles.contains(pass.name)) { return {}; }
-		auto handle = graph.addNode(ObjectName{.value = std::string(pass.name)});
-		if (!handle) { return std::unexpected(handle.error()); }
-		handles.emplace(pass.name, *handle);
-		return {};
-	}
-
-	/// @brief Adds dependency edges for one pass list.
-	inline std::expected<void, Error>
-	RenderSystem::addDependencies(RenderGraph &graph, const detail::RenderPassHandleMap &handles,
-											std::span<const RenderPassContract> passes) {
-		for (const auto &pass : passes) {
-			const auto pass_handle = handles.at(pass.name);
-			for (const auto dependency : pass.depends_on) {
-				if (dependency.empty()) { return std::unexpected(Error::invalid_argument); }
-				const auto found = handles.find(dependency);
-				if (found == handles.end()) { return std::unexpected(Error::missing_object); }
-				graph.addEdge(found->second, pass_handle);
-			}
-		}
-		return {};
-	}
-
-
-	/// @brief Returns the current forward renderer backend.
-	inline auto RenderSystem::forward()																			-> ForwardRenderer &{
-		return std::get<ForwardRenderer>(renderer_);
-	}
-
-	/// @brief Returns the current forward renderer backend.
-	inline auto RenderSystem::forward() const																	-> const ForwardRenderer &{
-		return std::get<ForwardRenderer>(renderer_);
-	}
-
-	/// @brief Renderer-selection seam used by renderer-specific tests.
-	inline auto RenderSystem::backend()																			-> SelectedRenderer &{
-		return renderer_;
-	}
-
-	/// @brief Renderer-selection seam used by renderer-specific tests.
-	inline auto RenderSystem::backend() const																	-> const SelectedRenderer &{
-		return renderer_;
-	}
-
+	/// @brief Returns the forward renderer backend.
+	inline auto RenderSystem::forward() const																	-> const ForwardRenderer &{ return renderer_; }
 
 	/// @brief Mints a public render-object handle for one internal scene instance.
 	inline auto RenderSystem::registerRenderObject(RenderInstanceHandle instance, std::size_t backend_index)
@@ -281,39 +223,30 @@ namespace vve::simple {
 
 	/// @brief Forwards the GUI recorder into the active forward renderer.
 	inline auto RenderSystem::setGuiRecordSink(std::function<void(VkCommandBuffer)> sink)			-> void{
-		if (std::holds_alternative<ForwardRenderer>(renderer_)) {
-			std::get<ForwardRenderer>(renderer_).setGuiRecordSink(std::move(sink));
-		}
+		renderer_.setGuiRecordSink(std::move(sink));
 	}
 
 	inline auto RenderSystem::initialize(SDL_Window *window, RendererId id)									-> std::expected<void, Error>{
 		if (initialized_) { return {}; }
 		if (window == nullptr) { return std::unexpected(Error::invalid_argument); }
-		if (id.value == "forward" || id.value.empty()) {
-			if (!std::holds_alternative<ForwardRenderer>(renderer_)) { renderer_.emplace<ForwardRenderer>(); }
-			std::get<ForwardRenderer>(renderer_).setGuiSystem(guiSystem_);
-		} else if (id.value == "stub") {
-			if (!std::holds_alternative<StubRenderer>(renderer_)) { renderer_.emplace<StubRenderer>(); }
-		} else {
-			return std::unexpected(Error::invalid_argument);
-		}
-		const VkResult result = std::visit([window](auto &renderer) { return renderer.init(window); }, renderer_);
+		if (id.value != "forward" && !id.value.empty()) { return std::unexpected(Error::invalid_argument); }
+		renderer_.setGuiSystem(guiSystem_);
+		const VkResult result = renderer_.init(window);
 		if (result != VK_SUCCESS) { return std::unexpected(Error::platform_error); }
 		initialized_ = true;
 		return {};
 	}
 
 	inline auto RenderSystem::makeGuiInitInfo() const													-> std::optional<ImGui_ImplVulkan_InitInfo>{
-		if (!initialized_ || !std::holds_alternative<ForwardRenderer>(renderer_)) { return std::nullopt; }
-		const auto &forward = std::get<ForwardRenderer>(renderer_);
-		auto info = forward.makeImguiInitInfo();
+		if (!initialized_) { return std::nullopt; }
+		auto info = renderer_.makeImguiInitInfo();
 		info.RenderPass = VK_NULL_HANDLE;
 		info.UseDynamicRendering = true;
 		info.PipelineRenderingCreateInfo = VkPipelineRenderingCreateInfo{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
 			.colorAttachmentCount = 1U,
-			.pColorAttachmentFormats = &forward.swapchain.imageFormat,
-			.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT,
+			.pColorAttachmentFormats = &renderer_.swapchain.imageFormat,
+			.depthAttachmentFormat = depthFormat,	///< GUI records inside the forward color pass, which binds the depth image.
 		};
 		if (info.Device == VK_NULL_HANDLE || info.DescriptorPool == VK_NULL_HANDLE) {
 			return std::nullopt;
@@ -324,17 +257,13 @@ namespace vve::simple {
 	/// @brief Waits for renderer-owned Vulkan work before dependent resources are destroyed.
 	inline auto RenderSystem::waitIdle() -> void {
 		if (!initialized_) { return; }
-		std::visit([](auto &renderer) {
-			if constexpr (std::same_as<std::remove_cvref_t<decltype(renderer)>, ForwardRenderer>) {
-				if (renderer.device.device != VK_NULL_HANDLE) { (void)vkDeviceWaitIdle(renderer.device.device); }
-			}
-		}, renderer_);
+		if (renderer_.device.device != VK_NULL_HANDLE) { (void)vkDeviceWaitIdle(renderer_.device.device); }
 	}
 
 	inline auto RenderSystem::shutdown()																				-> void{
 		if (initialized_) {
 			waitIdle();
-			std::visit([](auto &renderer) { renderer.shutdown(); }, renderer_);
+			renderer_.shutdown();
 			initialized_ = false;
 		}
 	}
@@ -360,6 +289,16 @@ namespace vve::simple {
 	inline std::size_t RenderSystem::sceneShadowLightMetaCount() const { return forward().sceneShadowLightMetaCount(); }
 	/// @brief Returns one prepared shadow metadata row.
 	inline std::optional<ShadowLightMeta> RenderSystem::sceneShadowLightMeta(std::size_t index) const { return forward().sceneShadowLightMeta(index); }
+	/// @brief Returns the shadow-depth samples recorded by the last rendered frame.
+	inline auto RenderSystem::shadowDepthSamples() const -> std::span<const RenderShadowDepthSample> { return renderer_.shadowDepthSamples; }
+	/// @brief Enables the per-frame GPU shadow-depth readback for verification runs.
+	inline auto RenderSystem::setGpuDebugReadback(bool enabled) -> void { renderer_.setGpuDebugReadback(enabled); }
+	/// @brief Copies the last rendered swapchain image and writes it as a PNG.
+	inline auto RenderSystem::captureFrameToPng(const std::filesystem::path &output_path) -> std::expected<void, Error> {
+		if (!initialized_) { return std::unexpected(Error::not_initialized); }
+		if (output_path.empty()) { return std::unexpected(Error::invalid_argument); }
+		return renderer_.captureFrameToPng(output_path);
+	}
 	inline bool RenderSystem::hasSceneCamera() const { return scene_.camera().has_value(); }
 	inline bool RenderSystem::hasSceneDirectionalLight() const { return scene_.directionalLight().has_value(); }
 	inline bool RenderSystem::hasScenePointLight() const { return scene_.pointLight().has_value(); }
@@ -371,7 +310,7 @@ namespace vve::simple {
 			return !window.should_close;
 		});
 		if (initialized_) {
-			std::visit([](auto &renderer) { renderer.renderFrame(nullptr); }, renderer_);
+			renderer_.renderFrame(nullptr);
 			++rendered_frames_;
 		} else {
 			++rendered_frames_;

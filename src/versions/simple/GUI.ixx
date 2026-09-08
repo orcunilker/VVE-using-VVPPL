@@ -15,25 +15,14 @@ module;
 
 export module VEEngine.Simple:Gui;
 import std;
-export import :RenderPass;
-export import :Types;
+export import VEEngine.Simple.Types;
 
 /// @file
-/// @brief Tiny GUI descriptor table used until a real GUI backend is added.
-
-namespace vve::simple {
-
-	/// @brief Internal GUI widget record.
-	struct GuiWidgetRecord {
-		GuiWidgetHandle handle{};											///< Stable widget handle.
-		std::string label{};													///< Text shown by the widget.
-	};
-
-} // namespace vve::simple
+/// @brief Dear ImGui wrapper: one context, the SDL3 and Vulkan backends, and one user frame callback.
 
 export namespace vve::simple {
 
-	/// @brief Minimal GUI registry.
+	/// @brief Owns the Dear ImGui context and backend lifecycles for the simple engine.
 	class GuiSystem {
 	public:
 		auto draw(std::function<void()> frame)											-> void;
@@ -47,14 +36,8 @@ export namespace vve::simple {
 		auto recordFrame(VkCommandBuffer cmd)									-> void;
 		auto shutdownContext()																	-> void;
 		[[nodiscard]] auto hasFrameCallback() const									-> bool;
-		[[nodiscard]] auto label(std::string text)								-> std::expected<GuiWidgetHandle, Error>;
-		[[nodiscard]] auto containsWidget(GuiWidgetHandle handle) const	-> bool;
-		[[nodiscard]] auto widgetLabel(GuiWidgetHandle handle) const		-> std::expected<std::string, Error>;
-		[[nodiscard]] auto widgetCount() const										-> std::size_t;
-		[[nodiscard]] static constexpr auto passes() noexcept					-> std::span<const RenderPassContract>;
 
 	private:
-		std::map<GuiWidgetHandle, GuiWidgetRecord> widgets_{};	///< Widgets by handle.
 		std::function<void()> frameCallback_{};						///< User frame callback stored for the future GUI backend.
 		ImGuiContext *context_{nullptr};									///< Owned Dear ImGui context for this GUI system.
 		bool sdlBackendReady_{false};										///< SDL backend lifecycle state.
@@ -63,31 +46,6 @@ export namespace vve::simple {
 	};
 
 } // namespace vve::simple
-
-namespace vve::simple::detail {
-
-	inline constexpr std::string_view gui_overlay_pass{"gui.overlay_pass"};					///< Real GUI overlay pass.
-	inline constexpr std::array gui_pass_dependencies{RenderMilestone::scene_color()};	///< GUI needs scene color.
-	inline constexpr std::array gui_done_dependencies{gui_overlay_pass};						///< GUI milestone input.
-	inline constexpr std::array gui_frame_dependencies{RenderMilestone::gui()};			///< Final frame input.
-	inline constexpr std::array gui_pass_contracts{													///< GUI graph wiring.
-			RenderPassContract{.name = gui_overlay_pass,
-									.depends_on = gui_pass_dependencies,
-									.shader_file = "Gui.slang",
-									.vertex_entry = "vveGuiVertexMain",
-									.fragment_entry = "vveGuiFragmentMain",
-									.inputs = "scene color target, GUI draw data",
-									.outputs = "color target with GUI overlay"},
-			RenderPassContract{.name = RenderMilestone::gui(),
-									.depends_on = gui_done_dependencies,
-									.outputs = "GUI overlay is ready",
-									.milestone = true},
-			RenderPassContract{.name = RenderMilestone::frame_finished(),
-									.depends_on = gui_frame_dependencies,
-									.outputs = "frame can be presented",
-									.milestone = true}};
-
-} // namespace vve::simple::detail
 
 export namespace vve::simple {
 
@@ -164,29 +122,5 @@ export namespace vve::simple {
 
 	/// @brief Returns whether a frame callback is currently stored.
 	inline bool GuiSystem::hasFrameCallback() const { return static_cast<bool>(frameCallback_); }
-
-	/// @brief Adds a text label and returns its handle.
-	inline auto GuiSystem::label(std::string text)							-> std::expected<GuiWidgetHandle, Error>{
-		const auto handle = makeCounterHandle<GuiWidgetHandle>();
-		const auto [_, inserted] = widgets_.emplace(handle, GuiWidgetRecord{.handle = handle, .label = std::move(text)});
-		if (!inserted) { return std::unexpected(Error::duplicate_object); }
-		return handle;
-	}
-
-	/// @brief Returns whether a widget exists.
-	inline bool GuiSystem::containsWidget(GuiWidgetHandle handle) const { return widgets_.contains(handle); }
-
-	/// @brief Returns the label text for a widget.
-	inline auto GuiSystem::widgetLabel(GuiWidgetHandle handle) const	-> std::expected<std::string, Error>{
-		const auto widget = widgets_.find(handle);
-		if (widget == widgets_.end()) { return std::unexpected(Error::missing_object); }
-		return widget->second.label;
-	}
-
-	/// @brief Returns widget count.
-	inline std::size_t GuiSystem::widgetCount() const { return widgets_.size(); }
-
-	/// @brief Returns the GUI system render pass list.
-	constexpr std::span<const RenderPassContract> GuiSystem::passes() noexcept { return detail::gui_pass_contracts; }
 
 } // namespace vve::simple

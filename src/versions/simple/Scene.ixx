@@ -1,8 +1,7 @@
 export module VEEngine.Simple.Scene;
 import std;
-import VEEngine.Simple.Math;
+import VEEngine.Simple.Types;
 import VEEngine.Simple.Mesh;
-import VEEngine.Types;
 
 /**
 	* @file
@@ -19,10 +18,16 @@ import VEEngine.Types;
 	*/
 export namespace vve::simple {
 
+	inline constexpr std::size_t kMaxSceneTextures{8U};       ///< Base-color texture slots bound to the forward pass; mirrors the shader array size.
+	inline constexpr std::uint32_t kNoTexture{0xFFFFFFFFU};    ///< Object texture index meaning "untextured".
 	inline constexpr std::size_t kMaxShadowedSpotLights{10U}; ///< Small fixed cap for the first spot-shadow data model.
 	inline constexpr std::size_t kMaxShadowedPointLights{10U}; ///< Small fixed cap for point-shadow CPU metadata.
 	inline constexpr std::size_t kMaxDirectionalLights{10U};  ///< Directional-light cap; four cascades each occupy forty shadow-map layers.
 	inline constexpr std::size_t kNumShadowCascades{4U};      ///< Directional shadow cascades assigned to every packed light.
+	inline constexpr std::size_t kShadowMatrixSpotBase{0U};   ///< First spot-light matrix inside the shared shadow matrix array (one per packed spot light).
+	inline constexpr std::size_t kShadowMatrixPointBase{kMaxShadowedSpotLights}; ///< First point-face matrix (six per packed point light).
+	inline constexpr std::size_t kShadowMatrixDirBase{kShadowMatrixPointBase + kMaxShadowedPointLights * 6U}; ///< First directional cascade matrix (kNumShadowCascades per packed light).
+	inline constexpr std::size_t kShadowMatrixCount{kShadowMatrixDirBase + kMaxDirectionalLights * kNumShadowCascades}; ///< Size of the shared shadow matrix array; mirrors the shader.
 	inline constexpr Scalar shadowDistance{60.0F};            ///< Maximum camera distance covered by directional shadows.
 	inline constexpr Scalar zBackoff{40.0F};                  ///< Extra light-space depth behind each camera frustum slice.
 
@@ -30,7 +35,7 @@ export namespace vve::simple {
 	struct Object {
 		Mesh mesh{};                              ///< CPU geometry used by one drawable object.
 		Mat4 model{};                             ///< Model matrix placing the mesh in world space.
-		std::uint32_t useBaseColorTexture{0U};    ///< Non-zero when the object wants the optional base-color texture.
+		std::uint32_t baseColorTextureIndex{kNoTexture}; ///< Index into Scene::textures, or kNoTexture for a plain vertex-colored object.
 		bool visible{true};                       ///< True when command recording should draw this object.
 		bool castsShadow{true};                   ///< False excludes the object from every shadow depth pass.
 		bool unlit{false};                        ///< True renders the object in its flat base color without lighting.
@@ -71,13 +76,11 @@ export namespace vve::simple {
 	/// @brief Host-side scene container with drawable objects in submission order.
 	struct Scene {
 		std::vector<Object> objects{};                                ///< Drawable objects owned by this CPU scene.
-		std::optional<std::filesystem::path> baseColorTexture{};      ///< Optional scene base-color image path for future texture uploads.
-		std::vector<PointLight> pointLights{};                        ///< Capped point lights for upcoming cube-shadow support.
-		PointLight pointLight{};                                      ///< Active point light driving shading.
-		std::vector<DirectionalLight> directionalLights{};            ///< Capped directional lights for upcoming multi-light support.
-		DirectionalLight directionalLight{};                          ///< Active directional light driving future shading.
-		std::vector<SpotLight> spotLights{};                          ///< Capped spot lights for upcoming multi-shadow support.
-		SpotLight spotLight{};                                        ///< First spot light mirror for the unchanged renderer path.
+		std::vector<std::filesystem::path> textures{};                ///< Unique base-color image paths indexed by Object::baseColorTextureIndex (at most kMaxSceneTextures).
+		std::vector<PointLight> pointLights{};                        ///< Point lights; at most kMaxShadowedPointLights are rendered.
+		std::vector<DirectionalLight> directionalLights{};            ///< Directional lights; at most kMaxDirectionalLights are rendered.
+		std::vector<SpotLight> spotLights{};                          ///< Spot lights; at most kMaxShadowedSpotLights are rendered.
+		Scalar ambient{PointLight{}.ambient};                         ///< Scene-wide ambient term applied to every lit surface.
 	};
 
 	/**
@@ -105,13 +108,13 @@ export namespace vve::simple {
 		* @return Scene containing several cube objects with distinct world transforms.
 	*/
 	Scene makeSampleScene() {
-		const DirectionalLight sampleDirectional{                      ///< One source keeps vector and mirror directional data identical.
+		const DirectionalLight sampleDirectional{
 			.direction = Vec3{-0.55F, -0.78F, 0.30F},                 ///< Cool grazing light crosses all three cubes.
 			.color = Vec3{0.65F, 0.82F, 1.0F},                       ///< Blue daylight tint separates it from the point light.
 			.intensity = {.value = 0.75F},                           ///< Moderate strength makes directional shading visible.
 			.ambient = 0.025F,                                       ///< Low ambient keeps directional shadows readable.
 		};
-		const SpotLight sampleSpot{                                    ///< One source keeps vector and mirror spot data identical.
+		const SpotLight sampleSpot{
 			.position = Vec3{1.45F, 4.8F, -1.45F},                     ///< Warm cone starts above the right side of the scene.
 			.direction = Vec3{0.10F, -0.98F, -0.16F},                  ///< Cone aims down across the center cube cluster.
 			.color = Vec3{1.0F, 0.58F, 0.38F},                        ///< Orange tint makes spot contribution distinct.
@@ -121,14 +124,11 @@ export namespace vve::simple {
 			.outerConeAngle = {.radians = 0.58F},                     ///< Wider outer cone gives a visible falloff band.
 			.ambient = 0.02F,                                         ///< Small ambient contribution preserves shadow contrast.
 		};
-		const PointLight samplePoint{};                                 ///< One source keeps vector and mirror point data identical.
 		return Scene{.objects{
 			Object{.mesh = makeCube(), .model = identityMat4()},                                      ///< Center cube.
 			Object{.mesh = makeCube(), .model = translate(identityMat4(), Vec3{-1.5F, 0.0F, 0.0F})}, ///< Left cube.
 			Object{.mesh = makeCube(), .model = translate(identityMat4(), Vec3{1.5F, 0.0F, 0.0F})},  ///< Right cube.
-		}, .pointLights{samplePoint}, .pointLight = samplePoint,
-			.directionalLights{sampleDirectional}, .directionalLight = sampleDirectional,
-			.spotLights{sampleSpot}, .spotLight = sampleSpot};
+		}, .pointLights{PointLight{}}, .directionalLights{sampleDirectional}, .spotLights{sampleSpot}};
 	}
 
 } // namespace vve::simple
