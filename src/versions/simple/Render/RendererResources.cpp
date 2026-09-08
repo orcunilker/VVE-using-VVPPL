@@ -75,6 +75,10 @@ namespace vve::simple {
 		result = depthImage.create(allocator, device.device, swapchain.extent, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 		if (result != VK_SUCCESS) { cleanup(); return result; }
 
+		result = hdrImage.create(allocator, device.device, swapchain.extent, VK_FORMAT_R16G16B16A16_SFLOAT,
+										 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+		if (result != VK_SUCCESS) { cleanup(); return result; }
+
 		result = descriptorSetLayout.create(device.device);
 		if (result != VK_SUCCESS) { cleanup(); return result; }
 
@@ -297,6 +301,7 @@ namespace vve::simple {
 		spotShadowArray.cleanup();
 		dirShadowArray.cleanup();
 		depthImage.cleanup();
+		hdrImage.cleanup();
 		imageViews.cleanup();
 		swapchain.cleanup();
 		allocator.cleanup();
@@ -331,6 +336,7 @@ namespace vve::simple {
 
 		graphicsPipeline.cleanup();
 		depthImage.cleanup();
+		hdrImage.cleanup();
 		imageViews.cleanup();
 		frameSync.cleanup();
 		swapchain.cleanup();
@@ -345,6 +351,10 @@ namespace vve::simple {
 
 		result = depthImage.create(allocator, device.device, swapchain.extent, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 		if (result != VK_SUCCESS) { return result; }
+
+		result = hdrImage.create(allocator, device.device, swapchain.extent, VK_FORMAT_R16G16B16A16_SFLOAT,
+										 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+		if (result != VK_SUCCESS) { cleanup(); return result; }
 
 		if (postProcess) { postProcess->resize(swapchain.extent.width, swapchain.extent.height); }
 

@@ -98,6 +98,7 @@ export namespace vve::simple {
 		VulkanSwapchain swapchain{};           ///< Owned swapchain wrapper for presentation images.
 		VulkanImageViews imageViews{};         ///< Owned color image views for swapchain images.
 		VulkanImage depthImage{};              ///< Owned swapchain-sized depth attachment image and view.
+		VulkanImage hdrImage{};                ///< Owned swapchain-sized RGBA16F color target the scene is rendered into.
 		ShadowMap dirShadowArray{};            ///< Owned directional shadow-map texture array with one layer per active directional light.
 		ShadowMap spotShadowArray{};           ///< Owned spot shadow-map texture array with one layer per active spot light.
 		ShadowMap pointShadowArray{};          ///< Owned point shadow-map texture array with six layers per shadowed point light.
