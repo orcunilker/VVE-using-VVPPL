@@ -246,7 +246,7 @@ namespace vve::simple {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
 			.colorAttachmentCount = 1U,
 			.pColorAttachmentFormats = &renderer_.swapchain.imageFormat,
-			.depthAttachmentFormat = depthFormat,	///< GUI records inside the forward color pass, which binds the depth image.
+			.depthAttachmentFormat = VK_FORMAT_UNDEFINED,	// kein depth attachment mehr
 		};
 		if (info.Device == VK_NULL_HANDLE || info.DescriptorPool == VK_NULL_HANDLE) {
 			return std::nullopt;

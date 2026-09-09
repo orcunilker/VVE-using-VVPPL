@@ -108,7 +108,7 @@ namespace vve::simple {
 		if (result != VK_SUCCESS) { cleanup(); return result; }
 
 		result = graphicsPipeline.create(device.device, pipelineLayout.pipelineLayout, vertShaderModule.shaderModule, "vertexMain",
-															  fragShaderModule.shaderModule, vertexInput, swapchain.extent, swapchain.imageFormat, depthFormat);
+															  fragShaderModule.shaderModule, vertexInput, swapchain.extent, VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat); // TODO Format in eine variable
 		if (result != VK_SUCCESS) { cleanup(); return result; }
 
 		result = shadowPipeline.create(device.device, pipelineLayout.pipelineLayout, shadowShaderModule.shaderModule, "shadowVertexMain",
@@ -168,6 +168,7 @@ namespace vve::simple {
 			postProcess = std::make_unique<vvppl::PostProcessing>(device.device, physicalDevice.physicalDevice,
 								swapchain.extent.width, swapchain.extent.height, framesInFlight);
 			
+			postProcess->addTonemap().exposure = 0.5F;
 			postProcess->addVignette().intensity = 0.6F;
 		} catch (const std::exception &) {
 			cleanup();
@@ -360,7 +361,7 @@ namespace vve::simple {
 
 		VulkanVertexInputDescription vertexInput{};
 		result = graphicsPipeline.create(device.device, pipelineLayout.pipelineLayout, vertShaderModule.shaderModule, "vertexMain",
-													  fragShaderModule.shaderModule, vertexInput, swapchain.extent, swapchain.imageFormat, depthFormat);
+													  fragShaderModule.shaderModule, vertexInput, swapchain.extent, VK_FORMAT_R16G16B16A16_SFLOAT, depthFormat);
 		if (result != VK_SUCCESS) { return result; }
 
 		result = frameSync.create(device.device, framesInFlight, static_cast<std::uint32_t>(swapchain.images.size()));
