@@ -1,3 +1,6 @@
+module;
+#include <VVPPL.h>
+
 module VEEngine;
 import :RenderSystem;
 
@@ -38,6 +41,9 @@ namespace vve {
 						  LightIntensity{.value = 2.2F}, LightRange{.value = 5.8F}, SpotConeAngle{.radians = 0.58F});
 		return {};
 	}
+
+	/// @brief Sets the post processing setup
+	void RenderSystem::setPostProcessSetup(std::function<void(vvppl::PostProcessing &)> setup) { impl_.setPostProcessSetup(std::move(setup)); }
 
 	/// @brief Sets the active scene camera.
 	void RenderSystem::setCamera(Camera camera, PixelExtent extent) { impl_.setCamera(std::move(camera), extent); }

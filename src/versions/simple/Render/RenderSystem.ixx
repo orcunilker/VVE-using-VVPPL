@@ -6,6 +6,7 @@ module;
 #else
 #include <imgui_impl_vulkan.h>
 #endif
+#include <VVPPL.h>
 
 export module VEEngine.Simple:RenderSystem;
 import std;
@@ -110,6 +111,7 @@ export namespace vve::simple {
 		/// @brief Stores the borrowed GUI system for later forwarding to renderer backends.
 		auto setGuiSystem(void *gui)																								-> void;
 		auto setGuiRecordSink(std::function<void(VkCommandBuffer)> sink)												-> void;
+		auto setPostProcessSetup(std::function<void(vvppl::PostProcessing &)> setup)											-> void;
 		[[nodiscard]] auto initialize(SDL_Window *window, RendererId id = {})												-> std::expected<void, Error>;
 		[[nodiscard]] auto makeGuiInitInfo() const																			-> std::optional<ImGui_ImplVulkan_InitInfo>;
 		[[nodiscard]] auto forward()																								-> ForwardRenderer &;
@@ -224,6 +226,11 @@ namespace vve::simple {
 	/// @brief Forwards the GUI recorder into the active forward renderer.
 	inline auto RenderSystem::setGuiRecordSink(std::function<void(VkCommandBuffer)> sink)			-> void{
 		renderer_.setGuiRecordSink(std::move(sink));
+	}
+
+	/// @brief Forwards the post processing setup into the active forward renderer.
+	inline auto RenderSystem::setPostProcessSetup(std::function<void(vvppl::PostProcessing &)> setup) -> void {
+		renderer_.setPostProcessSetup(std::move(setup));
 	}
 
 	inline auto RenderSystem::initialize(SDL_Window *window, RendererId id)									-> std::expected<void, Error>{

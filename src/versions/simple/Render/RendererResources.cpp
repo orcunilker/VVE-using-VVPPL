@@ -163,16 +163,13 @@ namespace vve::simple {
 		sceneResourcesDirty_ = false;
 		sceneRequiresFullUpload_ = false;
 
-		// Die library wirft, die engine arbeitet mit std::expected und VKResult
-		try {
-			postProcess = std::make_unique<vvppl::PostProcessing>(device.device, physicalDevice.physicalDevice,
+		if (postProcessSetup_) {
+			// Die library wirft, die engine arbeitet mit std::expected und VKResult
+			try {
+				postProcess = std::make_unique<vvppl::PostProcessing>(device.device, physicalDevice.physicalDevice,
 								swapchain.extent.width, swapchain.extent.height, framesInFlight);
-			
-			postProcess->addTonemap().exposure = 0.5F;
-			postProcess->addVignette().intensity = 0.6F;
-		} catch (const std::exception &) {
-			cleanup();
-			return VK_ERROR_INITIALIZATION_FAILED;
+				postProcessSetup_(*postProcess);
+			} catch (const std::exception &) { cleanup(); return VK_ERROR_INITIALIZATION_FAILED; }
 		}
 
 		return VK_SUCCESS;
