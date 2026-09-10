@@ -110,7 +110,7 @@ namespace vve::simple {
 		if (result != VK_SUCCESS) { cleanup(); return result; }
 
 		result = graphicsPipeline.create(device.device, pipelineLayout.pipelineLayout, vertShaderModule.shaderModule, "vertexMain",
-															  fragShaderModule.shaderModule, vertexInput, swapchain.extent, hdrFormat, depthFormat); // TODO Format in eine variable
+															  fragShaderModule.shaderModule, vertexInput, swapchain.extent, hdrFormat, depthFormat);
 		if (result != VK_SUCCESS) { cleanup(); return result; }
 
 		result = shadowPipeline.create(device.device, pipelineLayout.pipelineLayout, shadowShaderModule.shaderModule, "shadowVertexMain",
