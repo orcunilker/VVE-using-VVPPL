@@ -112,11 +112,28 @@ int main(int argc, char **argv) {
 
 	auto render = engine.world().get<vve::RenderSystem>();
 
+	// Keep access to the library's effect settings.
+	vvppl::TonemapSettings *tonemap{nullptr};
+	vvppl::ChromaticSettings *chromatic{nullptr};
+	vvppl::GreyscaleSettings *greyscale{nullptr};
+	vvppl::VignetteSettings *vignette{nullptr};
+	vvppl::FilmGrainSettings *grain{nullptr};
+
 	// Configure the effects when the renderer creates the chain.
-	render.setPostProcessSetup([](vvppl::PostProcessing &pp) {
-		pp.addTonemap().exposure = 0.5F;
-		pp.addVignette().intensity = 0.6F;
-	});
+	render.setPostProcessSetup(
+    	[&tonemap, &chromatic, &greyscale, &vignette, &grain](vvppl::PostProcessing &pp) {
+			tonemap = &pp.addTonemap();
+			chromatic = &pp.addChromatic();
+			greyscale = &pp.addGreyscale();
+			vignette = &pp.addVignette();
+			grain = &pp.addFilmGrain();
+
+			tonemap->exposure = 0.5F;
+			chromatic->intensity = 0.0F;
+			greyscale->strength = 0.0F;
+			vignette->intensity = 0.6F;
+			grain->intensity = 0.0F;
+    });
 
 	if (const auto result = loadGameScene(render, assetRoot(argc > 0 ? argv[0] : nullptr)); !result) {
 		std::cerr << "[postprocessing] scene load failed: error=" << vve::errorName(result.error()) << '\n';
@@ -337,8 +354,31 @@ int main(int argc, char **argv) {
 	cameraController.yaw = std::atan2(startupForward.x, -startupForward.z);
 	cameraController.pitch = std::asin(startupForward.y);
 	engine.world().get<vve::GuiSystem>().draw([&frame, &activeRenderer, &directionalLightsEnabled, &pointLightsEnabled,
-															 &spotLightsEnabled, &cameraController, &lightsDirty, &renderFps] {
-		ImGui::Begin("Game");
+															 &spotLightsEnabled, &cameraController, &lightsDirty, &renderFps,
+															 &tonemap, &chromatic, &greyscale, &vignette, &grain] {
+		ImGui::Begin("Post Processing");
+		// Adjust the effect settings directly.
+		if (tonemap) {
+			ImGui::SliderFloat("Exposure", &tonemap->exposure, 0.0F, 3.0F);
+		}
+		if (chromatic) {
+			ImGui::SliderFloat("Chromatic aberration",
+							&chromatic->intensity, 0.0F, 0.03F, "%.3f");
+		}
+		if (greyscale) {
+			ImGui::SliderFloat("Greyscale", &greyscale->strength, 0.0F, 1.0F);
+		}
+		if (vignette) {
+			ImGui::SliderFloat("Vignette", &vignette->intensity, 0.0F, 1.0F);
+			ImGui::SliderFloat("Vignette radius", &vignette->radius, 0.0F, 1.0F);
+			ImGui::SliderFloat("Vignette smoothness",
+							&vignette->smoothness, 0.01F, 1.0F);
+		}
+		if (grain) {
+			ImGui::SliderFloat("Film grain", &grain->intensity, 0.0F, 0.3F);
+		}
+		ImGui::Separator();
+
 		ImGui::Text("Frame: %d", frame);
 		ImGui::Text("Render FPS: %.1f", renderFps);
 		ImGui::Text("Renderer: %s", activeRenderer.value.c_str());
@@ -361,10 +401,19 @@ int main(int argc, char **argv) {
 						cameraController.eye.value.z);
 		ImGui::End();
 	});
+	
+	const auto startTime = std::chrono::steady_clock::now(); // Clock for Film Grain shader
+
 	while (running && (maxFrames == 0 || frame < maxFrames)) {
 		const auto frameInput = engine.world().get<vve::WindowSystem>().input();
 		render.setCamera(cameraController.update(frameInput), vve::PixelExtent{.width = 960, .height = 540});
 		renderFps = render.renderingFramesPerSecond();
+
+		// New seed with every frame for the shader - time
+		if (grain) {
+			grain->time = std::chrono::duration<float>(
+				std::chrono::steady_clock::now() - startTime).count();
+		}
 
 		const auto status = engine.step();
 		if (!status) {
