@@ -101,6 +101,7 @@ target_link_libraries(ViennaVulkanEngine
     PUBLIC
         assimp::assimp
         glm::glm
+        vvppl
     PRIVATE
         imgui::imgui
         SDL3::SDL3

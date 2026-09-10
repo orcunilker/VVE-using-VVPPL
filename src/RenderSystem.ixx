@@ -1,3 +1,6 @@
+module;
+#include <VVPPL.h>
+
 export module VEEngine:RenderSystem;
 import std;
 import :Implementation;
@@ -39,6 +42,7 @@ export namespace vve {
 
 		auto clearScene()																													-> void;
 		[[nodiscard]] auto loadSampleScene()																						-> std::expected<void, Error>;
+		auto setPostProcessSetup(std::function<void(vvppl::PostProcessing &)> setup)											-> void;
 		auto setCamera(Camera camera, PixelExtent extent)																		-> void;
 		void setDirectionalLight(Direction direction_to_light, LinearColor color,
 											LightIntensity intensity, LinearColor ambient);

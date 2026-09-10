@@ -156,6 +156,15 @@ elseif(EXISTS "${VVE_VCPKG_INSTALLED_DIR}/share/SDL3/SDL3Config.cmake")
 endif()
 
 find_package(Vulkan REQUIRED)
+
+# Vienna Vulkan Post Processing Library
+include(FetchContent)
+FetchContent_Declare(viennavulkanpostprocessinglibrary
+                     GIT_REPOSITORY https://github.com/orcunilker/ViennaVulkanPostProcessingLibrary.git
+                     GIT_TAG v0.1)
+FetchContent_MakeAvailable(viennavulkanpostprocessinglibrary)
+set_target_properties(vvppl PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 find_package(slang CONFIG QUIET)
 if(TARGET slang::slang AND NOT VVE_VULKAN_SDK_ROOT STREQUAL "" AND EXISTS "${VVE_VULKAN_SDK_ROOT}/include/slang/slang.h")
    get_target_property(VVE_SLANG_IMPORTED_INCLUDES slang::slang INTERFACE_INCLUDE_DIRECTORIES)

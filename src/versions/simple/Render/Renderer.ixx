@@ -6,6 +6,7 @@ module;
 #else
 #include <imgui_impl_vulkan.h>
 #endif
+#include <VVPPL.h>
 
 export module VEEngine.Simple.Renderer;
 import std;
@@ -97,6 +98,7 @@ export namespace vve::simple {
 		VulkanSwapchain swapchain{};           ///< Owned swapchain wrapper for presentation images.
 		VulkanImageViews imageViews{};         ///< Owned color image views for swapchain images.
 		VulkanImage depthImage{};              ///< Owned swapchain-sized depth attachment image and view.
+		VulkanImage hdrImage{};                ///< Owned swapchain-sized RGBA16F color target the scene is rendered into.
 		ShadowMap dirShadowArray{};            ///< Owned directional shadow-map texture array with one layer per active directional light.
 		ShadowMap spotShadowArray{};           ///< Owned spot shadow-map texture array with one layer per active spot light.
 		ShadowMap pointShadowArray{};          ///< Owned point shadow-map texture array with six layers per shadowed point light.
@@ -126,6 +128,7 @@ export namespace vve::simple {
 		Vec3 cameraTarget{zero(), one(), zero()}; ///< World-space point looked at by the frame view matrix.
 		std::optional<std::uint32_t> lastRenderedImageIndex{}; ///< Swapchain image index from the last acquired, rendered, and presented frame.
 		std::optional<VkResult> lastReadbackCaptureResult{}; ///< Result from the optional in-frame color readback.
+		std::unique_ptr<vvppl::PostProcessing> postProcess{}; ///< Owned post-processing chain applied to the finished color image.
 
 		~ForwardRenderer() { cleanup(); }
 
@@ -162,6 +165,9 @@ export namespace vve::simple {
 
 		/// @brief Stores the optional GUI command recorder used inside the forward color pass.
 		void setGuiRecordSink(std::function<void(VkCommandBuffer)> sink) { guiRecord_ = std::move(sink); }
+
+		/// @brief Stores the post processing setup, which sets and configures effects.
+		void setPostProcessSetup(std::function<void(vvppl::PostProcessing &)> setup){ postProcessSetup_ = std::move(setup); }
 
 		/// @brief Reports whether the renderer currently owns a live Vulkan device.
 		[[nodiscard]] bool initialized() const { return device.device != VK_NULL_HANDLE; }
@@ -255,6 +261,7 @@ export namespace vve::simple {
 		VkDescriptorPool imguiDescriptorPool_{VK_NULL_HANDLE}; ///< Owned Dear ImGui descriptor pool reserved for backend texture descriptors.
 		void *guiSystem_{nullptr}; ///< Non-owning, type-erased GUI system pointer reserved for later GUI integration.
 		std::function<void(VkCommandBuffer)> guiRecord_; ///< Optional GUI recorder invoked during the forward color pass.
+		std::function<void(vvppl::PostProcessing &)> postProcessSetup_; ///< Optional Post Processing setup
 		std::vector<std::filesystem::path> uploadedTextures_{}; ///< Scene::textures as of the last GPU texture upload.
 		bool sceneResourcesDirty_{true}; ///< CPU scene topology or texture changed after the last GPU synchronization.
 		bool sceneRequiresFullUpload_{true}; ///< Removal or replacement requires rebuilding index-aligned GPU meshes.
