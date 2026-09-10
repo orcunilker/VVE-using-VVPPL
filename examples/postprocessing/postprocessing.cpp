@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
 	bool running = true;                                                                 ///< GUI changes are applied after the frame callback returns.
 	double renderFps{};                                                                              ///< Render-system FPS, not the ImGui/display estimate.
 	vve::DefaultCameraController cameraController{};                                                ///< Facade camera motion shared by examples and applications.
-	cameraController.eye = vve::Position{.value = vve::Vec3{-2.0F, 2.0F, 6.0F}};
+	cameraController.eye = vve::Position{.value = vve::Vec3{-2.0F, 1.5F, 6.0F}};
 	const auto startupForward =
 		vve::math::normalize(vve::math::subtract(vve::Vec3{0.0F, 1.0F, 0.0F}, cameraController.eye.value));
 	cameraController.yaw = std::atan2(startupForward.x, -startupForward.z);
