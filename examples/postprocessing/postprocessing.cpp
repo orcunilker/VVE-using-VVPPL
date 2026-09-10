@@ -6,14 +6,10 @@ import VEEngine;
 
 /**
  * @file
- * @brief Interactive example that drives the renderer through the public facade.
+ * @brief Adopted from testscene. Post Processing Demo.
  */
 namespace {
-
-constexpr auto crateTextureRelativePath = "assets/game/crate0/diffuse.png";
-constexpr std::size_t maxGameDirectionalLights{10U}; ///< Current simple forward renderer directional-light demo cap.
-constexpr std::size_t maxGamePointLights{10U};       ///< Current simple forward renderer point-light demo cap.
-constexpr std::size_t maxGameSpotLights{10U};        ///< Current simple forward renderer spot-light demo cap.
+constexpr auto crateTextureRelativePath = "assets/game/crate0/diffuse.png";	
 
 /// @brief Finds the repository-style asset root from either the cwd or executable location.
 [[nodiscard]] std::filesystem::path assetRoot(char *argv0) {
@@ -128,11 +124,13 @@ int main(int argc, char **argv) {
 			vignette = &pp.addVignette();
 			grain = &pp.addFilmGrain();
 
-			tonemap->exposure = 0.5F;
-			chromatic->intensity = 0.0F;
-			greyscale->strength = 0.0F;
-			vignette->intensity = 0.6F;
-			grain->intensity = 0.0F;
+			tonemap->exposure = 0.6F;
+			chromatic->intensity = 0.02F;
+			greyscale->strength = 0.2F;
+			vignette->intensity = 0.8F;
+			vignette->radius = 0.4F;
+			vignette->smoothness = 0.6F;
+			grain->intensity = 0.05F;
     });
 
 	if (const auto result = loadGameScene(render, assetRoot(argc > 0 ? argv[0] : nullptr)); !result) {
@@ -140,223 +138,29 @@ int main(int argc, char **argv) {
 		return 2;
 	}
 
-	const auto pointPositions = std::array{
-		vve::Position{.value = vve::Vec3{2.0F, 3.5F, -2.0F}},
-		vve::Position{.value = vve::Vec3{-2.0F, 3.0F, 2.0F}},
-		vve::Position{.value = vve::Vec3{0.0F, 2.8F, -3.0F}},
-		vve::Position{.value = vve::Vec3{0.0F, 2.6F, 3.0F}},
-		vve::Position{.value = vve::Vec3{-3.2F, 2.9F, -0.5F}},
-		vve::Position{.value = vve::Vec3{3.2F, 2.9F, -0.5F}},
-		vve::Position{.value = vve::Vec3{-2.4F, 2.4F, -2.7F}},
-		vve::Position{.value = vve::Vec3{2.4F, 2.4F, -2.7F}},
-		vve::Position{.value = vve::Vec3{-2.6F, 2.5F, 2.4F}},
-		vve::Position{.value = vve::Vec3{2.6F, 2.5F, 2.4F}},
-	};																													///< Ten facade point positions exercise every demo slot.
-	const auto pointColors = std::array{
-		vve::LinearColor{.value = vve::Vec3{1.0F, 0.96F, 0.82F}},
-		vve::LinearColor{.value = vve::Vec3{0.55F, 0.78F, 1.0F}},
-		vve::LinearColor{.value = vve::Vec3{1.0F, 0.55F, 0.42F}},
-		vve::LinearColor{.value = vve::Vec3{0.62F, 1.0F, 0.54F}},
-		vve::LinearColor{.value = vve::Vec3{0.86F, 0.62F, 1.0F}},
-		vve::LinearColor{.value = vve::Vec3{1.0F, 0.78F, 0.48F}},
-		vve::LinearColor{.value = vve::Vec3{0.48F, 0.94F, 1.0F}},
-		vve::LinearColor{.value = vve::Vec3{1.0F, 0.48F, 0.78F}},
-		vve::LinearColor{.value = vve::Vec3{0.74F, 1.0F, 0.66F}},
-		vve::LinearColor{.value = vve::Vec3{0.68F, 0.72F, 1.0F}},
-	};																													///< Distinct colors make active point slots visible.
-	const auto pointIntensities = std::array{
-		vve::LightIntensity{.value = 3.0F},
-		vve::LightIntensity{.value = 2.4F},
-		vve::LightIntensity{.value = 1.5F},
-		vve::LightIntensity{.value = 1.4F},
-		vve::LightIntensity{.value = 1.2F},
-		vve::LightIntensity{.value = 1.2F},
-		vve::LightIntensity{.value = 1.0F},
-		vve::LightIntensity{.value = 1.0F},
-		vve::LightIntensity{.value = 0.9F},
-		vve::LightIntensity{.value = 0.9F},
-	};																													///< Point strengths keep the combined scene readable.
-	const auto pointRanges = std::array{
-		vve::LightRange{.value = 7.0F},
-		vve::LightRange{.value = 6.0F},
-		vve::LightRange{.value = 4.8F},
-		vve::LightRange{.value = 4.8F},
-		vve::LightRange{.value = 4.5F},
-		vve::LightRange{.value = 4.5F},
-		vve::LightRange{.value = 4.0F},
-		vve::LightRange{.value = 4.0F},
-		vve::LightRange{.value = 3.8F},
-		vve::LightRange{.value = 3.8F},
-	};																													///< Point ranges bound each local light volume.
-	const auto pointAmbients = std::array{
-		vve::LinearColor{.value = vve::Vec3{0.18F, 0.18F, 0.18F}},
-		vve::LinearColor{.value = vve::Vec3{0.06F, 0.08F, 0.1F}},
-		vve::LinearColor{.value = vve::Vec3{0.025F, 0.015F, 0.012F}},
-		vve::LinearColor{.value = vve::Vec3{0.014F, 0.025F, 0.012F}},
-		vve::LinearColor{.value = vve::Vec3{0.018F, 0.012F, 0.026F}},
-		vve::LinearColor{.value = vve::Vec3{0.024F, 0.018F, 0.010F}},
-		vve::LinearColor{.value = vve::Vec3{0.010F, 0.022F, 0.026F}},
-		vve::LinearColor{.value = vve::Vec3{0.026F, 0.010F, 0.020F}},
-		vve::LinearColor{.value = vve::Vec3{0.016F, 0.024F, 0.014F}},
-		vve::LinearColor{.value = vve::Vec3{0.014F, 0.016F, 0.025F}},
-	};																													///< Per-light ambient terms mirror the other light controls.
-	const auto directionalDirections = std::array{
-		vve::Direction{.value = vve::Vec3{-0.45F, -0.8F, 0.35F}},
-		vve::Direction{.value = vve::Vec3{0.55F, -0.72F, 0.12F}},
-		vve::Direction{.value = vve::Vec3{-0.12F, -0.9F, -0.42F}},
-		vve::Direction{.value = vve::Vec3{0.28F, -0.82F, -0.38F}},
-		vve::Direction{.value = vve::Vec3{-0.72F, -0.58F, -0.20F}},
-		vve::Direction{.value = vve::Vec3{0.74F, -0.55F, -0.22F}},
-		vve::Direction{.value = vve::Vec3{-0.34F, -0.62F, 0.70F}},
-		vve::Direction{.value = vve::Vec3{0.36F, -0.64F, 0.68F}},
-		vve::Direction{.value = vve::Vec3{-0.08F, -0.98F, 0.18F}},
-		vve::Direction{.value = vve::Vec3{0.12F, -0.96F, -0.25F}},
-	};																													///< Ten facade directional vectors exercise every demo slot.
-	const auto directionalColors = std::array{
-		vve::LinearColor{.value = vve::Vec3{0.95F, 0.98F, 1.0F}},
-		vve::LinearColor{.value = vve::Vec3{1.0F, 0.78F, 0.58F}},
-		vve::LinearColor{.value = vve::Vec3{0.58F, 0.86F, 1.0F}},
-		vve::LinearColor{.value = vve::Vec3{0.72F, 1.0F, 0.64F}},
-		vve::LinearColor{.value = vve::Vec3{1.0F, 0.62F, 0.70F}},
-		vve::LinearColor{.value = vve::Vec3{0.62F, 1.0F, 0.88F}},
-		vve::LinearColor{.value = vve::Vec3{0.82F, 0.70F, 1.0F}},
-		vve::LinearColor{.value = vve::Vec3{1.0F, 0.92F, 0.55F}},
-		vve::LinearColor{.value = vve::Vec3{0.68F, 0.78F, 1.0F}},
-		vve::LinearColor{.value = vve::Vec3{0.86F, 1.0F, 0.72F}},
-	};																													///< Distinct colors make active directional slots visible.
-	const auto directionalIntensities = std::array{
-		vve::LightIntensity{.value = 1.05F},
-		vve::LightIntensity{.value = 0.45F},
-		vve::LightIntensity{.value = 0.35F},
-		vve::LightIntensity{.value = 0.28F},
-		vve::LightIntensity{.value = 0.22F},
-		vve::LightIntensity{.value = 0.22F},
-		vve::LightIntensity{.value = 0.18F},
-		vve::LightIntensity{.value = 0.18F},
-		vve::LightIntensity{.value = 0.14F},
-		vve::LightIntensity{.value = 0.14F},
-	};																													///< Directional strengths keep the combined scene readable.
-	const auto directionalAmbients = std::array{
-		vve::LinearColor{.value = vve::Vec3{0.04F, 0.04F, 0.04F}},
-		vve::LinearColor{.value = vve::Vec3{0.015F, 0.012F, 0.01F}},
-		vve::LinearColor{.value = vve::Vec3{0.01F, 0.014F, 0.018F}},
-		vve::LinearColor{.value = vve::Vec3{0.01F, 0.016F, 0.01F}},
-		vve::LinearColor{.value = vve::Vec3{0.012F, 0.008F, 0.010F}},
-		vve::LinearColor{.value = vve::Vec3{0.008F, 0.012F, 0.010F}},
-		vve::LinearColor{.value = vve::Vec3{0.010F, 0.008F, 0.012F}},
-		vve::LinearColor{.value = vve::Vec3{0.012F, 0.011F, 0.007F}},
-		vve::LinearColor{.value = vve::Vec3{0.007F, 0.009F, 0.012F}},
-		vve::LinearColor{.value = vve::Vec3{0.009F, 0.012F, 0.007F}},
-	};																													///< Per-light ambient terms mirror the spot-light muting model.
-	const auto spotIntensity = vve::LightIntensity{.value = 4.0F};                                     ///< Startup spot light strength.
-	const auto spotRange = vve::LightRange{.value = 8.0F};                                             ///< Startup spot light reach.
-	const auto spotCone = vve::SpotConeAngle{.radians = 0.65F};                                        ///< Startup spot light outer cone.
-	const auto spotAmbient = vve::LinearColor{.value = vve::Vec3{0.04F, 0.04F, 0.04F}};                ///< Startup spot ambient term.
-	const auto spotPositions = std::array{
-		vve::Position{.value = vve::Vec3{0.0F, 4.0F, 3.0F}},
-		vve::Position{.value = vve::Vec3{-2.4F, 3.8F, -1.2F}},
-		vve::Position{.value = vve::Vec3{2.4F, 3.8F, -1.2F}},
-		vve::Position{.value = vve::Vec3{0.0F, 4.3F, -3.0F}},
-		vve::Position{.value = vve::Vec3{-3.1F, 3.5F, 1.6F}},
-		vve::Position{.value = vve::Vec3{3.1F, 3.5F, 1.6F}},
-		vve::Position{.value = vve::Vec3{-3.0F, 3.3F, -3.0F}},
-		vve::Position{.value = vve::Vec3{3.0F, 3.3F, -3.0F}},
-		vve::Position{.value = vve::Vec3{-1.0F, 5.0F, 0.0F}},
-		vve::Position{.value = vve::Vec3{1.0F, 5.0F, 0.0F}},
-	};																													///< Ten facade spot positions exercise every demo slot.
-	const auto spotDirections = std::array{
-		vve::Direction{.value = vve::Vec3{0.0F, -0.85F, -0.45F}},
-		vve::Direction{.value = vve::Vec3{0.35F, -0.85F, 0.2F}},
-		vve::Direction{.value = vve::Vec3{-0.35F, -0.85F, 0.2F}},
-		vve::Direction{.value = vve::Vec3{0.0F, -0.9F, 0.35F}},
-		vve::Direction{.value = vve::Vec3{0.72F, -0.76F, -0.30F}},
-		vve::Direction{.value = vve::Vec3{-0.72F, -0.76F, -0.30F}},
-		vve::Direction{.value = vve::Vec3{0.55F, -0.72F, 0.55F}},
-		vve::Direction{.value = vve::Vec3{-0.55F, -0.72F, 0.55F}},
-		vve::Direction{.value = vve::Vec3{0.18F, -0.98F, 0.04F}},
-		vve::Direction{.value = vve::Vec3{-0.18F, -0.98F, 0.04F}},
-	};																													///< Each spot aims at the crate group from a different side.
-	const auto spotColors = std::array{
-		vve::LinearColor{.value = vve::Vec3{1.0F, 0.9F, 0.72F}},
-		vve::LinearColor{.value = vve::Vec3{0.6F, 0.85F, 1.0F}},
-		vve::LinearColor{.value = vve::Vec3{1.0F, 0.55F, 0.45F}},
-		vve::LinearColor{.value = vve::Vec3{0.65F, 1.0F, 0.58F}},
-		vve::LinearColor{.value = vve::Vec3{1.0F, 0.72F, 0.95F}},
-		vve::LinearColor{.value = vve::Vec3{0.72F, 1.0F, 0.95F}},
-		vve::LinearColor{.value = vve::Vec3{0.92F, 0.78F, 1.0F}},
-		vve::LinearColor{.value = vve::Vec3{1.0F, 0.92F, 0.62F}},
-		vve::LinearColor{.value = vve::Vec3{0.72F, 0.78F, 1.0F}},
-		vve::LinearColor{.value = vve::Vec3{0.82F, 1.0F, 0.72F}},
-	};																													///< Distinct colors make active spot slots visible.
-	const auto offAmbient = vve::LinearColor{.value = vve::Vec3{0.0F, 0.0F, 0.0F}};                    ///< Muted light ambient term.
-	constexpr auto offIntensity = vve::LightIntensity{.value = 0.0F};                                  ///< Muted direct light strength.
-	constexpr auto minimumShadowPointIntensity = vve::LightIntensity{.value = 2.0F};                  ///< Minimum enabled point brightness for visible shadows.
-	constexpr auto offRange = vve::LightRange{.value = 0.0F};                                          ///< Muted local light reach.
-	auto directionalLightsEnabled = std::array<bool, maxGameDirectionalLights>{};                    ///< Tracks each capped directional light.
-	auto pointLightsEnabled = std::array<bool, maxGamePointLights>{};                                ///< Tracks each capped point light.
-	auto spotLightsEnabled = std::array<bool, maxGameSpotLights>{};                                  ///< Tracks each capped spot light.
-	directionalLightsEnabled.fill(true);                                                            ///< Start with every directional slot active.
-	pointLightsEnabled.fill(true);                                                                  ///< Start with every point slot active.
-	spotLightsEnabled.fill(true);                                                                   ///< Start with every spot slot active.
-	auto applyLights = [&] {
-		const auto applyDirectional = [&](std::size_t index, bool first) {
-			const auto intensity = directionalLightsEnabled[index] ? directionalIntensities[index] : offIntensity;
-			const auto ambient = directionalLightsEnabled[index] ? directionalAmbients[index] : offAmbient;
-			if (first) {
-				render.setDirectionalLight(directionalDirections[index], directionalColors[index], intensity, ambient);
-			} else {
-				render.addDirectionalLight(directionalDirections[index], directionalColors[index], intensity, ambient);
-			}
-		};																												// First directional resets the set; the rest fill the capped slots.
-		applyDirectional(0U, true);
-		for (std::size_t index{1U}; index < directionalLightsEnabled.size(); ++index) { applyDirectional(index, false); }
-		const auto applySpot = [&](std::size_t index, bool first) {
-			const auto intensity = spotLightsEnabled[index] ? spotIntensity : offIntensity;
-			const auto range = spotLightsEnabled[index] ? spotRange : offRange;
-			const auto ambient = spotLightsEnabled[index] ? spotAmbient : offAmbient;
-			if (first) {
-				render.setSpotLight(spotPositions[index], spotDirections[index], spotColors[index], intensity, range, spotCone, ambient);
-			} else {
-				render.addSpotLight(spotPositions[index], spotDirections[index], spotColors[index], intensity, range, spotCone, ambient);
-			}
-		};																												// First spot resets the set; the rest fill the capped slots.
-		applySpot(0U, true);
-		for (std::size_t index{1U}; index < spotLightsEnabled.size(); ++index) { applySpot(index, false); }
-		bool anyPointLightEnabled{};																				// Disabled fallback keeps the legacy point slot valid.
-		for (std::size_t index{}; index < pointLightsEnabled.size(); ++index) {
-			if (!pointLightsEnabled[index]) { continue; }
-			const auto pointIntensity = vve::LightIntensity{
-				.value = std::max(pointIntensities[index].value, minimumShadowPointIntensity.value)}; // Every enabled point light can cast a readable shadow.
-			if (!anyPointLightEnabled) {
-				render.setPointLight(pointPositions[index], pointColors[index], pointIntensity, pointRanges[index],
-										 pointAmbients[index]);
-			} else {
-				render.addPointLight(pointPositions[index], pointColors[index], pointIntensity, pointRanges[index],
-										 pointAmbients[index]);
-			}
-			anyPointLightEnabled = true;
-		}
-		if (!anyPointLightEnabled) {
-			render.setPointLight(pointPositions.front(), pointColors.front(), offIntensity, offRange, offAmbient);
-		}
-	};
-	applyLights();
+	// Simple Lights
+	const auto white = vve::LinearColor{.value = vve::Vec3{1.0F, 1.0F, 1.0F}};
+	const auto ambient = vve::LinearColor{.value = vve::Vec3{0.05F, 0.05F, 0.05F}};
+	render.setDirectionalLight(vve::Direction{.value = vve::Vec3{-0.5F, -1.0F, 0.5F}}, white,
+							vve::LightIntensity{.value = 1.0F}, ambient);
+	render.setPointLight(vve::Position{.value = vve::Vec3{2.0F, 4.0F, 2.0F}}, white,
+						vve::LightIntensity{.value = 3.0F}, vve::LightRange{.value = 8.0F}, ambient);
 
 	const int maxFrames = frameLimit(argc, argv).value_or(0);
 	int frame{};
-	bool running = true;
-	bool lightsDirty = false;                                                                        ///< GUI changes are applied after the frame callback returns.
+	bool running = true;                                                                 ///< GUI changes are applied after the frame callback returns.
 	double renderFps{};                                                                              ///< Render-system FPS, not the ImGui/display estimate.
 	vve::DefaultCameraController cameraController{};                                                ///< Facade camera motion shared by examples and applications.
-	cameraController.eye = vve::Position{.value = vve::Vec3{0.0F, 6.0F, 9.0F}};
+	cameraController.eye = vve::Position{.value = vve::Vec3{-2.0F, 2.0F, 6.0F}};
 	const auto startupForward =
 		vve::math::normalize(vve::math::subtract(vve::Vec3{0.0F, 1.0F, 0.0F}, cameraController.eye.value));
 	cameraController.yaw = std::atan2(startupForward.x, -startupForward.z);
 	cameraController.pitch = std::asin(startupForward.y);
-	engine.world().get<vve::GuiSystem>().draw([&frame, &activeRenderer, &directionalLightsEnabled, &pointLightsEnabled,
-															 &spotLightsEnabled, &cameraController, &lightsDirty, &renderFps,
+	engine.world().get<vve::GuiSystem>().draw([&frame, &activeRenderer, &cameraController, &renderFps,
 															 &tonemap, &chromatic, &greyscale, &vignette, &grain] {
+		ImGui::SetNextWindowSize(ImVec2(340.0F, 280.0F), ImGuiCond_Always);
 		ImGui::Begin("Post Processing");
+		ImGui::PushItemWidth(160.0F);
 		// Adjust the effect settings directly.
 		if (tonemap) {
 			ImGui::SliderFloat("Exposure", &tonemap->exposure, 0.0F, 3.0F);
@@ -382,23 +186,10 @@ int main(int argc, char **argv) {
 		ImGui::Text("Frame: %d", frame);
 		ImGui::Text("Render FPS: %.1f", renderFps);
 		ImGui::Text("Renderer: %s", activeRenderer.value.c_str());
-		ImGui::Text("Directional lights: %zu", directionalLightsEnabled.size());
-		for (std::size_t index{}; index < directionalLightsEnabled.size(); ++index) {
-			const auto label = std::format("Directional {}", index + 1U);
-			if (ImGui::Checkbox(label.c_str(), &directionalLightsEnabled[index])) { lightsDirty = true; }
-		}
-		ImGui::Text("Spot lights: %zu", spotLightsEnabled.size());
-		for (std::size_t index{}; index < spotLightsEnabled.size(); ++index) {
-			const auto label = std::format("Spot {}", index + 1U);
-			if (ImGui::Checkbox(label.c_str(), &spotLightsEnabled[index])) { lightsDirty = true; }
-		}
-		ImGui::Text("Point lights: %zu", pointLightsEnabled.size());
-		for (std::size_t index{}; index < pointLightsEnabled.size(); ++index) {
-			const auto label = std::format("Point {}", index + 1U);
-			if (ImGui::Checkbox(label.c_str(), &pointLightsEnabled[index])) { lightsDirty = true; }
-		}
 		ImGui::Text("Camera: %.2f, %.2f, %.2f", cameraController.eye.value.x, cameraController.eye.value.y,
 						cameraController.eye.value.z);
+
+		ImGui::PopItemWidth();
 		ImGui::End();
 	});
 	
@@ -425,28 +216,6 @@ int main(int argc, char **argv) {
 
 		auto input = engine.world().get<vve::WindowSystem>().input();
 		if (input.wasKeyPressed(vve::Key::escape)) { running = false; }
-		if (input.wasKeyPressed(vve::Key::o)) {
-			const bool enabled = !std::ranges::any_of(spotLightsEnabled, std::identity{});
-			spotLightsEnabled.fill(enabled);
-			applyLights();
-			std::cout << "[postprocessing] spot lights " << (enabled ? "on" : "off") << '\n';
-		}
-		if (input.wasKeyPressed(vve::Key::p)) {
-			const bool enabled = !std::ranges::any_of(pointLightsEnabled, std::identity{});
-			pointLightsEnabled.fill(enabled);
-			applyLights();
-			std::cout << "[postprocessing] point lights " << (enabled ? "on" : "off") << '\n';
-		}
-		if (input.wasKeyPressed(vve::Key::l)) {
-			const bool enabled = !std::ranges::any_of(directionalLightsEnabled, std::identity{});
-			directionalLightsEnabled.fill(enabled);
-			applyLights();
-			std::cout << "[postprocessing] directional lights " << (enabled ? "on" : "off") << '\n';
-		}
-		if (lightsDirty) {
-			applyLights();
-			lightsDirty = false;
-		}
 	}
 
 	std::cout << "[postprocessing] frames=" << frame << '\n';
