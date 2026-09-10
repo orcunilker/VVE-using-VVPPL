@@ -21,3 +21,7 @@ endif()
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/simple_forward_demo/CMakeLists.txt")
     add_subdirectory(simple_forward_demo)
 endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/postprocessing/CMakeLists.txt")
+    add_subdirectory(postprocessing)
+endif()

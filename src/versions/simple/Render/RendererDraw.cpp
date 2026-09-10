@@ -1,5 +1,6 @@
 module;
 #include <vulkan/vulkan_core.h>
+#include <VVPPL.h>
 
 module VEEngine.Simple.Renderer;
 import std;
@@ -242,7 +243,7 @@ namespace vve::simple {
 				.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-				.image = swapchain.images[imageIndex],
+				.image = hdrImage.image,
 				.subresourceRange = colorRange,
 			},
 			{
@@ -261,7 +262,7 @@ namespace vve::simple {
 									0U, 0U, nullptr, 0U, nullptr, static_cast<std::uint32_t>(beginBarriers.size()), beginBarriers.data());
 		const VkRenderingAttachmentInfo colorAttachment{ // Dynamic rendering mirrors the old render-pass color clear/store ops.
 			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-			.imageView = imageViews.ownedViews[imageIndex],
+			.imageView = hdrImage.imageView,
 			.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -289,9 +290,88 @@ namespace vve::simple {
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.pipeline);
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.pipelineLayout, 0U, 1U, &descriptorSets.descriptorSets[frameIndex], 0U, nullptr);
 		drawUploadedObjects(0U, false);
-		if (guiRecord_) { guiRecord_(commandBuffer); }
 
 		vkCmdEndRendering(commandBuffer);
+
+		// Both images need Layout GENERAL because HDR image gets read and Swapchain image gets written
+		const std::array<VkImageMemoryBarrier, 2U> postBarriers{{
+			{
+				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+				.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+				.newLayout = VK_IMAGE_LAYOUT_GENERAL, // VVPPL Library needs General
+				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+				.image = hdrImage.image,
+				.subresourceRange = colorRange,
+			},
+			{
+				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				.srcAccessMask = 0,
+				.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED, // old content is being deleted
+				.newLayout = VK_IMAGE_LAYOUT_GENERAL, // VVPPL Library gives General
+				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+				.image = swapchain.images[imageIndex],
+				.subresourceRange = colorRange,
+			}
+		}};
+
+		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+							VK_PIPELINE_STAGE_TRANSFER_BIT, 0U, 0U, nullptr, 0U, nullptr,
+							static_cast<std::uint32_t>(postBarriers.size()), postBarriers.data());
+
+		
+		if (postProcess) {
+			// Post Processing
+			postProcess->apply(commandBuffer, hdrImage.image, swapchain.images[imageIndex], frameIndex);
+		} else {
+			// Same blit the library would do, without the library (rendered HDR image to Swapchain Image)
+			VkImageBlit blit{};
+			blit.srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0U, .baseArrayLayer = 0U, .layerCount = 1U};
+			blit.srcOffsets[1] = {static_cast<std::int32_t>(swapchain.extent.width),
+										 static_cast<std::int32_t>(swapchain.extent.height), 1};
+			blit.dstSubresource = blit.srcSubresource;
+			blit.dstOffsets[1] = blit.srcOffsets[1];
+			vkCmdBlitImage(commandBuffer, hdrImage.image, VK_IMAGE_LAYOUT_GENERAL,
+								swapchain.images[imageIndex], VK_IMAGE_LAYOUT_GENERAL, 1U, &blit, VK_FILTER_NEAREST);
+		}
+
+		// Render GUI
+		const VkImageMemoryBarrier guiBarrier {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+			.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.image = swapchain.images[imageIndex],
+			.subresourceRange = colorRange,
+		};
+		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 
+							0U, 0U, nullptr, 0U, nullptr, 1U, &guiBarrier);
+
+		const VkRenderingAttachmentInfo guiAttachment{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView = imageViews.ownedViews[imageIndex],
+			.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+			.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+		};
+		const VkRenderingInfo guiRenderingInfo{
+			.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+			.renderArea = {.offset = {0, 0}, .extent = swapchain.extent},
+			.layerCount = 1U,
+			.colorAttachmentCount = 1U,
+			.pColorAttachments = &guiAttachment,
+		};
+		vkCmdBeginRendering(commandBuffer, &guiRenderingInfo);
+		if (guiRecord_) { guiRecord_(commandBuffer); }
+		vkCmdEndRendering(commandBuffer);
+
 		const VkImageMemoryBarrier presentBarrier{
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,

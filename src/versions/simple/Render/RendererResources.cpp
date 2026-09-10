@@ -1,6 +1,7 @@
 module;
 #include <SDL3/SDL_video.h>
 #include <vulkan/vulkan_core.h>
+#include <VVPPL.h>
 #if __has_include(<backends/imgui_impl_vulkan.h>)
 #include <backends/imgui_impl_vulkan.h>
 #else
@@ -18,6 +19,8 @@ import VEEngine.Simple.Vulkan;
 /// @brief ForwardRenderer Vulkan resource lifetime: bring-up, scene upload, swapchain rebuild, teardown, and ImGui wiring.
 
 namespace vve::simple {
+	// Format of the hdr offscreen color target the scene is rendered into.
+	constexpr VkFormat hdrFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
 
 	/**
 		* @brief Initializes the Vulkan instance, device, swapchain, image views, depth attachment, shadow map, render pass, framebuffers, descriptor-set layout, pipeline layout, shader modules, graphics pipeline, command pool, command buffers, frame synchronization, per-frame uniform buffers, descriptor pool, per-frame descriptor sets, and uploaded per-object meshes.
@@ -74,6 +77,10 @@ namespace vve::simple {
 		result = depthImage.create(allocator, device.device, swapchain.extent, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 		if (result != VK_SUCCESS) { cleanup(); return result; }
 
+		result = hdrImage.create(allocator, device.device, swapchain.extent, hdrFormat,
+										 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+		if (result != VK_SUCCESS) { cleanup(); return result; }
+
 		result = descriptorSetLayout.create(device.device);
 		if (result != VK_SUCCESS) { cleanup(); return result; }
 
@@ -103,7 +110,7 @@ namespace vve::simple {
 		if (result != VK_SUCCESS) { cleanup(); return result; }
 
 		result = graphicsPipeline.create(device.device, pipelineLayout.pipelineLayout, vertShaderModule.shaderModule, "vertexMain",
-															  fragShaderModule.shaderModule, vertexInput, swapchain.extent, swapchain.imageFormat, depthFormat);
+															  fragShaderModule.shaderModule, vertexInput, swapchain.extent, hdrFormat, depthFormat);
 		if (result != VK_SUCCESS) { cleanup(); return result; }
 
 		result = shadowPipeline.create(device.device, pipelineLayout.pipelineLayout, shadowShaderModule.shaderModule, "shadowVertexMain",
@@ -157,6 +164,15 @@ namespace vve::simple {
 		sceneGeometryDirty_.clear();
 		sceneResourcesDirty_ = false;
 		sceneRequiresFullUpload_ = false;
+
+		if (postProcessSetup_) {
+			// The VVPPL throws, whereas the Engine works with std::expected and VKResult
+			try {
+				postProcess = std::make_unique<vvppl::PostProcessing>(device.device, physicalDevice.physicalDevice,
+								swapchain.extent.width, swapchain.extent.height, framesInFlight);
+				postProcessSetup_(*postProcess);
+			} catch (const std::exception &) { cleanup(); return VK_ERROR_INITIALIZATION_FAILED; }
+		}
 
 		return VK_SUCCESS;
 	}
@@ -262,6 +278,7 @@ namespace vve::simple {
 			vkDestroyDescriptorPool(device.device, imguiDescriptorPool_, nullptr);
 			imguiDescriptorPool_ = VK_NULL_HANDLE;
 		}
+		postProcess.reset();
 		descriptorPool.cleanup();
 		uploadedTextures_.clear();
 		sceneGeometryDirty_.clear();
@@ -284,6 +301,7 @@ namespace vve::simple {
 		spotShadowArray.cleanup();
 		dirShadowArray.cleanup();
 		depthImage.cleanup();
+		hdrImage.cleanup();
 		imageViews.cleanup();
 		swapchain.cleanup();
 		allocator.cleanup();
@@ -318,6 +336,7 @@ namespace vve::simple {
 
 		graphicsPipeline.cleanup();
 		depthImage.cleanup();
+		hdrImage.cleanup();
 		imageViews.cleanup();
 		frameSync.cleanup();
 		swapchain.cleanup();
@@ -333,9 +352,15 @@ namespace vve::simple {
 		result = depthImage.create(allocator, device.device, swapchain.extent, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 		if (result != VK_SUCCESS) { return result; }
 
+		result = hdrImage.create(allocator, device.device, swapchain.extent, hdrFormat,
+										 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_ASPECT_COLOR_BIT);
+		if (result != VK_SUCCESS) { cleanup(); return result; }
+
+		if (postProcess) { postProcess->resize(swapchain.extent.width, swapchain.extent.height); }
+
 		VulkanVertexInputDescription vertexInput{};
 		result = graphicsPipeline.create(device.device, pipelineLayout.pipelineLayout, vertShaderModule.shaderModule, "vertexMain",
-													  fragShaderModule.shaderModule, vertexInput, swapchain.extent, swapchain.imageFormat, depthFormat);
+													  fragShaderModule.shaderModule, vertexInput, swapchain.extent, hdrFormat, depthFormat);
 		if (result != VK_SUCCESS) { return result; }
 
 		result = frameSync.create(device.device, framesInFlight, static_cast<std::uint32_t>(swapchain.images.size()));
