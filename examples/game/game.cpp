@@ -1,5 +1,4 @@
 #include <imgui.h>
-#include <VVPPL.h>
 
 import std;
 import VEEngine;
@@ -220,11 +219,6 @@ int main(int argc, char **argv) {
 		ImGui::TextUnformatted("WASD move  -  Arrows look  -  Esc quit");
 		ImGui::TextUnformatted("Drive into a crate to collect it!");
 		ImGui::End();
-	});
-
-	render.setPostProcessSetup([](vvppl::PostProcessing &pp) {
-		pp.addTonemap().exposure = 0.5F;
-		pp.addVignette().intensity = 0.6F;
 	});
 
 	const int maxFrames = frameLimit(argc, argv).value_or(0);
