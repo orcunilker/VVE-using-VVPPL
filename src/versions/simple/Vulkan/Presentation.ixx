@@ -109,7 +109,7 @@ export namespace vve::simple {
 				.imageColorSpace = chosenFormat.colorSpace,
 				.imageExtent = chosenExtent,
 				.imageArrayLayers = 1U,
-				.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,	///< Swapchain image is rendered to and copied from for readback.
+				.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,	///< Swapchain image is rendered to, read back from, and copied into from the offscreen color target.
 				.imageSharingMode = concurrentSharing ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE,
 				.queueFamilyIndexCount = concurrentSharing ? static_cast<std::uint32_t>(queueFamilies.size()) : 0U,
 				.pQueueFamilyIndices = concurrentSharing ? queueFamilies.data() : nullptr,

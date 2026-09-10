@@ -253,7 +253,8 @@ namespace vve::simple {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
 			.colorAttachmentCount = 1U,
 			.pColorAttachmentFormats = &renderer_.swapchain.imageFormat,
-			.depthAttachmentFormat = VK_FORMAT_UNDEFINED,	// kein depth attachment mehr
+			.depthAttachmentFormat = VK_FORMAT_UNDEFINED,
+			// the GUI is drawn in a own pass after post processing, which does not have any depthAttachment
 		};
 		if (info.Device == VK_NULL_HANDLE || info.DescriptorPool == VK_NULL_HANDLE) {
 			return std::nullopt;

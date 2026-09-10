@@ -261,7 +261,7 @@ export namespace vve::simple {
 		VkDescriptorPool imguiDescriptorPool_{VK_NULL_HANDLE}; ///< Owned Dear ImGui descriptor pool reserved for backend texture descriptors.
 		void *guiSystem_{nullptr}; ///< Non-owning, type-erased GUI system pointer reserved for later GUI integration.
 		std::function<void(VkCommandBuffer)> guiRecord_; ///< Optional GUI recorder invoked during the forward color pass.
-		std::function<void(vvppl::PostProcessing &)> postProcessSetup_; /// < Optional Post Processing setup
+		std::function<void(vvppl::PostProcessing &)> postProcessSetup_; ///< Optional Post Processing setup
 		std::vector<std::filesystem::path> uploadedTextures_{}; ///< Scene::textures as of the last GPU texture upload.
 		bool sceneResourcesDirty_{true}; ///< CPU scene topology or texture changed after the last GPU synchronization.
 		bool sceneRequiresFullUpload_{true}; ///< Removal or replacement requires rebuilding index-aligned GPU meshes.

@@ -293,15 +293,14 @@ namespace vve::simple {
 
 		vkCmdEndRendering(commandBuffer);
 
-		// Vorbereiten für HDR nach Swapchain Image mit/ohne Post Processing
-		// hdrImage -> GENERAL zum Lesen, swapchain -> GENERAL zum Schreiben
+		// Both images need Layout GENERAL because HDR image gets read and Swapchain image gets written
 		const std::array<VkImageMemoryBarrier, 2U> postBarriers{{
 			{
 				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 				.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
 				.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
 				.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				.newLayout = VK_IMAGE_LAYOUT_GENERAL, // VVPPL braucht General
+				.newLayout = VK_IMAGE_LAYOUT_GENERAL, // VVPPL Library needs General
 				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 				.image = hdrImage.image,
@@ -311,8 +310,8 @@ namespace vve::simple {
 				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 				.srcAccessMask = 0,
 				.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
-				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED, // alter Inhalt wird gelöscht
-				.newLayout = VK_IMAGE_LAYOUT_GENERAL, // VVPPL gibt General
+				.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED, // old content is being deleted
+				.newLayout = VK_IMAGE_LAYOUT_GENERAL, // VVPPL Library gives General
 				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 				.image = swapchain.images[imageIndex],
@@ -329,7 +328,7 @@ namespace vve::simple {
 			// Post Processing
 			postProcess->apply(commandBuffer, hdrImage.image, swapchain.images[imageIndex], frameIndex);
 		} else {
-			// Same copy the library would do, without the library. (rendered HDR image to Swapchain Image)
+			// Same blit the library would do, without the library (rendered HDR image to Swapchain Image)
 			VkImageBlit blit{};
 			blit.srcSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0U, .baseArrayLayer = 0U, .layerCount = 1U};
 			blit.srcOffsets[1] = {static_cast<std::int32_t>(swapchain.extent.width),
