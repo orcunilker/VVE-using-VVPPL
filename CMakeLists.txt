@@ -157,9 +157,11 @@ endif()
 
 find_package(Vulkan REQUIRED)
 
-# Vienna Vulkan Post Processing LIbrary, lokales Nachbarverzeichnis
+# Vienna Vulkan Post Processing Library
 include(FetchContent)
-FetchContent_Declare(viennavulkanpostprocessinglibrary SOURCE_DIR ${CMAKE_SOURCE_DIR}/../MyVVPP)
+FetchContent_Declare(viennavulkanpostprocessinglibrary
+                     GIT_REPOSITORY https://github.com/orcunilker/ViennaVulkanPostProcessingLibrary.git
+                     GIT_TAG v0.1)
 FetchContent_MakeAvailable(viennavulkanpostprocessinglibrary)
 set_target_properties(vvppl PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
