@@ -25,3 +25,7 @@ endif()
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/postprocessing/CMakeLists.txt")
     add_subdirectory(postprocessing)
 endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/postprocessing_measure/CMakeLists.txt")
+    add_subdirectory(postprocessing_measure)
+endif()
