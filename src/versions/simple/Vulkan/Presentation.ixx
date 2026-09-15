@@ -177,7 +177,7 @@ export namespace vve::simple {
 			const bool hasMailbox = std::ranges::any_of(presentModes, [](VkPresentModeKHR mode) {
 				return mode == VK_PRESENT_MODE_MAILBOX_KHR;
 			});
-			return hasMailbox ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_FIFO_KHR;
+			return hasMailbox ? VK_PRESENT_MODE_MAILBOX_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
 		}
 
 		/**
