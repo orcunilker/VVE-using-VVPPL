@@ -1,10 +1,9 @@
-#include <imgui.h>
 #include <VVPPL.h>
 
 import std;
 import VEEngine;
 
-/// Measurement copy of the postprocessing example: no input, no GUI, fixed camera.
+// Measurement copy of the postprocessing example: no input, no GUI, fixed camera.
 // Usage: VVPP_CHAIN=<direct|empty|full> postprocessing_measure <warmup> <frames> [screenshot.png]
 namespace {
 constexpr auto crateTextureRelativePath = "assets/game/crate0/diffuse.png";	
@@ -90,7 +89,7 @@ int main(int argc, char **argv) {
 						 .build();
 
 	if (const auto result = engine.init(); !result) {
-		std::cerr << "[postprocessing] engine init failed: error=" << vve::errorName(result.error()) << '\n';
+		std::cerr << "[postprocessing_measure] engine init failed: error=" << vve::errorName(result.error()) << '\n';
 		return 1;
 	}
 
@@ -123,7 +122,7 @@ int main(int argc, char **argv) {
 
 
 	if (const auto result = loadGameScene(render, assetRoot(argc > 0 ? argv[0] : nullptr)); !result) {
-		std::cerr << "[postprocessing] scene load failed: error=" << vve::errorName(result.error()) << '\n';
+		std::cerr << "[postprocessing_measure] scene load failed: error=" << vve::errorName(result.error()) << '\n';
 		return 2;
 	}
 
