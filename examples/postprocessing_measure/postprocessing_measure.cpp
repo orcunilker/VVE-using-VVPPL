@@ -68,6 +68,10 @@ int main(int argc, char **argv) {
 	}
 	const int warmup = std::stoi(argv[1]);
 	const int frames = std::stoi(argv[2]);
+	if (warmup < 0 || frames <= 0) {
+		std::cerr << "invalid frame counts\n";
+		return 1;
+	}
 
 	// Chain from the environment: direct copy without the library, empty chain or full chain
 	const char *chainValue = std::getenv("VVPP_CHAIN");
@@ -83,7 +87,7 @@ int main(int argc, char **argv) {
 						 .addWindow(vve::WindowSetup{}
 										 .id("main")
 										 .title("VVE Post Processing Measurement")
-										 .extent(vve::PixelExtent{.width = 960, .height = 540})
+										 .extent(vve::PixelExtent{.width = 1920, .height = 1080})
 										 .renderer(activeRenderer)
 										 .resizable(false))
 						 .build();
@@ -100,7 +104,7 @@ int main(int argc, char **argv) {
 		render.setPostProcessSetup([](vvppl::PostProcessing &) {});
 	}
 
-	// Same effects and order as in the postprocessing example and in bench, with the default settings
+	// All fifteen effects with defaults, matching bench; the library fixes the order.
 	if (chain == "full") {
 		render.setPostProcessSetup([](vvppl::PostProcessing &pp) {
 			pp.addTonemap();
@@ -117,6 +121,7 @@ int main(int argc, char **argv) {
 			pp.addHighlight();
 			pp.addSegmentation();
 			pp.addDither();
+			pp.addInvert();
 		});
 	}
 
@@ -137,7 +142,7 @@ int main(int argc, char **argv) {
 	// Camera fixed at the start position of the postprocessing example
 	render.setCamera(vve::Camera::lookAt(vve::Position{.value = vve::Vec3{-2.0F, 1.5F, 6.0F}},
 										 vve::Position{.value = vve::Vec3{0.0F, 1.0F, 0.0F}}),
-					 vve::PixelExtent{.width = 960, .height = 540});
+					 vve::PixelExtent{.width = 1920, .height = 1080});
 
 	
 	// Warm-up frames, not timed
