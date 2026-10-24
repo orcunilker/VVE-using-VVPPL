@@ -126,6 +126,28 @@ namespace vve::simple {
 		result = commandBuffers.create(device.device, commandPool.commandPool, framesInFlight);
 		if (result != VK_SUCCESS) { cleanup(); return result; }
 
+		// Measurement branch: four timestamp queries per frame in flight, if the graphics queue counts timestamps.
+		{
+			std::uint32_t familyCount{};
+			vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice.physicalDevice, &familyCount, nullptr);
+			std::vector<VkQueueFamilyProperties> families(familyCount);
+			vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice.physicalDevice, &familyCount, families.data());
+			const std::uint32_t validBits{families[*physicalDevice.graphicsQueueFamily].timestampValidBits};
+			if (validBits > 0U) {
+				const VkQueryPoolCreateInfo queryInfo{
+					.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+					.queryType = VK_QUERY_TYPE_TIMESTAMP,
+					.queryCount = 4U * framesInFlight,
+				};
+				result = vkCreateQueryPool(device.device, &queryInfo, nullptr, &timestampPool);
+				if (result != VK_SUCCESS) { cleanup(); return result; }
+				VkPhysicalDeviceProperties properties{};
+				vkGetPhysicalDeviceProperties(physicalDevice.physicalDevice, &properties);
+				timestampPeriodNs_ = properties.limits.timestampPeriod;
+				timestampMask_ = validBits >= 64U ? ~0ULL : (1ULL << validBits) - 1ULL;
+			}
+		}
+
 		result = frameSync.create(device.device, framesInFlight, static_cast<std::uint32_t>(swapchain.images.size()));
 		if (result != VK_SUCCESS) { cleanup(); return result; }
 
@@ -279,6 +301,11 @@ namespace vve::simple {
 			imguiDescriptorPool_ = VK_NULL_HANDLE;
 		}
 		postProcess.reset();
+		if (timestampPool != VK_NULL_HANDLE) {
+			vkDestroyQueryPool(device.device, timestampPool, nullptr);
+			timestampPool = VK_NULL_HANDLE;
+		}
+		timestampsPending_ = {};
 		descriptorPool.cleanup();
 		uploadedTextures_.clear();
 		sceneGeometryDirty_.clear();

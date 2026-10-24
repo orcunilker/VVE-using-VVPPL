@@ -40,6 +40,8 @@ namespace vve::simple {
 
 		VkResult result = vkWaitForFences(device.device, 1U, &inFlightFence, VK_TRUE, UINT64_MAX);
 		if (result != VK_SUCCESS) { reportFrameFailure("fence wait", result); return; }
+		// Measurement branch: the fence guarantees that the timestamps of this slot are written.
+		if (timestampsPending_[currentFrame]) { readGpuTimestamps(currentFrame); }
 
 		std::uint32_t imageIndex{};
 		result = vkAcquireNextImageKHR(device.device, swapchain.swapchain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
@@ -98,6 +100,7 @@ namespace vve::simple {
 		};
 		result = vkQueueSubmit(device.graphicsQueue, 1U, &submitInfo, inFlightFence);
 		if (result != VK_SUCCESS) { reportFrameFailure("queue submit", result); return; }
+		timestampsPending_[currentFrame] = gpuTimestamps_ && timestampPool != VK_NULL_HANDLE;
 		fillShadowDepthSamplesFromGpu();
 		if (readback != nullptr && imageIndex < swapchain.images.size()) {
 			lastReadbackCaptureResult = readback->capture(swapchain.images[imageIndex], 0U, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -132,6 +135,21 @@ namespace vve::simple {
 		std::cerr << "[vve::simple] frame skipped: " << stage << " failed with VkResult " << static_cast<std::int32_t>(result) << '\n';
 	}
 
+	/// @brief Measurement branch: adds the frame time and the time of the post-processing step of a finished frame slot to the sums.
+	void ForwardRenderer::readGpuTimestamps(std::uint32_t frameIndex) {
+		std::array<std::uint64_t, 4U> ticks{};
+		const VkResult result = vkGetQueryPoolResults(device.device, timestampPool, 4U * frameIndex, 4U, sizeof(ticks), ticks.data(),
+																	 sizeof(std::uint64_t), VK_QUERY_RESULT_64_BIT);
+		timestampsPending_[frameIndex] = false;
+		if (result != VK_SUCCESS) { return; }
+		const auto milliseconds = [&](std::uint64_t first, std::uint64_t last) {
+			return static_cast<double>((last - first) & timestampMask_) * timestampPeriodNs_ / 1.0e6;
+		};
+		gpuFrameSumMs_ += milliseconds(ticks[0], ticks[3]);
+		gpuPostSumMs_ += milliseconds(ticks[1], ticks[2]);
+		++gpuTimedFrames_;
+	}
+
 	/**
 		* @brief Records the shadow passes and forward color pass for one acquired swapchain image.
 		*
@@ -152,6 +170,14 @@ namespace vve::simple {
 		const VkCommandBufferBeginInfo beginInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 		result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
 		if (result != VK_SUCCESS) { return result; }
+
+		// Measurement branch: timestamps at the frame start, after the main pass, after the post-processing step and at the frame end.
+		const bool timestamps{gpuTimestamps_ && timestampPool != VK_NULL_HANDLE};
+		const std::uint32_t firstQuery{4U * frameIndex};
+		if (timestamps) {
+			vkCmdResetQueryPool(commandBuffer, timestampPool, firstQuery, 4U);
+			vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, timestampPool, firstQuery);
+		}
 
 		const auto drawUploadedObjects = [&](std::uint32_t shadowMatrixIndex, bool shadowPass) {
 			std::size_t objectIndex{}; // Meshes and scene objects share submission order.
@@ -297,6 +323,7 @@ namespace vve::simple {
 		drawUploadedObjects(0U, false);
 
 		vkCmdEndRendering(commandBuffer);
+		if (timestamps) { vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, timestampPool, firstQuery + 1U); }
 
 		// Both images need Layout GENERAL because HDR image gets read and Swapchain image gets written
 		const std::array<VkImageMemoryBarrier, 2U> postBarriers{{
@@ -343,6 +370,7 @@ namespace vve::simple {
 			vkCmdBlitImage(commandBuffer, hdrImage.image, VK_IMAGE_LAYOUT_GENERAL,
 								swapchain.images[imageIndex], VK_IMAGE_LAYOUT_GENERAL, 1U, &blit, VK_FILTER_NEAREST);
 		}
+		if (timestamps) { vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, timestampPool, firstQuery + 2U); }
 
 		// Render GUI
 		const VkImageMemoryBarrier guiBarrier {
@@ -389,6 +417,7 @@ namespace vve::simple {
 		};
 		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 									VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0U, 0U, nullptr, 0U, nullptr, 1U, &presentBarrier);
+		if (timestamps) { vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, timestampPool, firstQuery + 3U); }
 		result = vkEndCommandBuffer(commandBuffer);
 		if (result != VK_SUCCESS) { return result; }
 

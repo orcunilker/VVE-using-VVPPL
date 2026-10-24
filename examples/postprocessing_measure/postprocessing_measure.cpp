@@ -145,6 +145,11 @@ int main(int argc, char **argv) {
 					 vve::PixelExtent{.width = 1920, .height = 1080});
 
 	
+	// GPU timestamps around every frame and its post-processing step, already during the warm-up;
+	// VVPP_GPU_TIMESTAMPS=1 switches them on, so runs without them stay possible
+	const char *timestampValue = std::getenv("VVPP_GPU_TIMESTAMPS");
+	render.setGpuTimestamps(timestampValue != nullptr && std::string{timestampValue} == "1");
+
 	// Warm-up frames, not timed
 	for (int i = 0; i < warmup; ++i) {
 		const auto status = engine.step();
@@ -154,7 +159,8 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	// Timed frames
+	// Timed frames; the GPU sums start here, and with two frames in flight they lag the clock by two frames
+	render.resetGpuTimes();
 	const auto start = std::chrono::steady_clock::now();
 	for (int i = 0; i < frames; ++i) {
 		const auto status = engine.step();
@@ -165,6 +171,7 @@ int main(int argc, char **argv) {
 	}
 	const auto end = std::chrono::steady_clock::now();
 	const double meanMs = std::chrono::duration<double, std::milli>(end - start).count() / frames;
+	const auto [gpuFrameMs, gpuPostMs] = render.gpuTimesMilliseconds();
 
 	// Screenshot after the timing, because it renders an extra frame and waits for the GPU
 	if (argc > 3) {
@@ -174,6 +181,6 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	std::cout << chain << ',' << warmup << ',' << frames << ',' << meanMs << '\n';
+	std::cout << chain << ',' << warmup << ',' << frames << ',' << meanMs << ',' << gpuFrameMs << ',' << gpuPostMs << '\n';
 	return 0;
 }

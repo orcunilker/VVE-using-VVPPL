@@ -129,6 +129,7 @@ export namespace vve::simple {
 		std::optional<std::uint32_t> lastRenderedImageIndex{}; ///< Swapchain image index from the last acquired, rendered, and presented frame.
 		std::optional<VkResult> lastReadbackCaptureResult{}; ///< Result from the optional in-frame color readback.
 		std::unique_ptr<vvppl::PostProcessing> postProcess{}; ///< Owned post-processing chain applied to the finished color image.
+		VkQueryPool timestampPool{VK_NULL_HANDLE}; ///< Measurement branch: four timestamp queries per frame in flight.
 
 		~ForwardRenderer() { cleanup(); }
 
@@ -153,6 +154,15 @@ export namespace vve::simple {
 		void recordShadowDepthSamples(const ForwardRendererShadowFrame &shadowFrame);	///< Projects the world origin through every active shadow matrix.
 		void fillShadowDepthSamplesFromGpu();												///< Reads the rendered shadow-map texel of every recorded sample.
 		[[nodiscard]] auto captureFrameToPng(const std::filesystem::path &output_path) -> std::expected<void, Error>;
+
+		// GPU timestamps of the measurement branch (RendererDraw.cpp).
+		void setGpuTimestamps(bool enabled) { gpuTimestamps_ = enabled; resetGpuTimes(); }	///< Writes timestamps around each frame and its post-processing step.
+		void resetGpuTimes() { gpuFrameSumMs_ = 0.0; gpuPostSumMs_ = 0.0; gpuTimedFrames_ = 0U; }	///< Clears the sums, for example after the warm-up frames.
+		/// @brief Returns the mean GPU time of a frame and of its post-processing step since the last reset, in milliseconds.
+		[[nodiscard]] std::pair<double, double> gpuTimesMilliseconds() const {
+			if (gpuTimedFrames_ == 0U) { return {0.0, 0.0}; }
+			return {gpuFrameSumMs_ / static_cast<double>(gpuTimedFrames_), gpuPostSumMs_ / static_cast<double>(gpuTimedFrames_)};
+		}
 
 		/// @brief Returns command-recorded pass tags from the most recent frame.
 		[[nodiscard]] std::span<const RecordedPass> lastRecordedPassOrder() const { return recordedPassOrder; }
@@ -256,6 +266,7 @@ export namespace vve::simple {
 		static void reportFrameFailure(const char *stage, VkResult result);	///< Logs a skipped frame with its Vulkan result, capped to avoid flooding the console.
 		[[nodiscard]] VkResult recordCommandBuffer(std::uint32_t frameIndex, std::uint32_t imageIndex, const ForwardRendererShadowFrame &shadowFrame);
 		[[nodiscard]] static std::pair<std::uint32_t, std::uint32_t> shadowTexel(Vec3 lightNdc);	///< Converts light NDC x/y to one clamped shadow-map texel.
+		void readGpuTimestamps(std::uint32_t frameIndex);	///< Adds the timestamps of a finished frame slot to the sums.
 
 		std::uint32_t currentFrame{0U}; ///< Index of the frame synchronization set used by the next draw.
 		VkDescriptorPool imguiDescriptorPool_{VK_NULL_HANDLE}; ///< Owned Dear ImGui descriptor pool reserved for backend texture descriptors.
@@ -267,6 +278,13 @@ export namespace vve::simple {
 		bool sceneRequiresFullUpload_{true}; ///< Removal or replacement requires rebuilding index-aligned GPU meshes.
 		bool gpuDebugReadback_{false}; ///< False during normal rendering to avoid per-frame GPU stalls.
 		std::set<std::size_t> sceneGeometryDirty_{}; ///< Existing GPU meshes requiring a vertex-buffer refresh.
+		bool gpuTimestamps_{false}; ///< Measurement branch: true while GPU timestamps are written.
+		std::array<bool, framesInFlight> timestampsPending_{}; ///< Frame slots whose submitted timestamps are not read yet.
+		double timestampPeriodNs_{1.0}; ///< Nanoseconds per timestamp tick of the graphics queue.
+		std::uint64_t timestampMask_{~0ULL}; ///< Valid bits of a timestamp value.
+		double gpuFrameSumMs_{0.0}; ///< Sum of the GPU frame times since the last reset.
+		double gpuPostSumMs_{0.0}; ///< Sum of the GPU times of the post-processing step since the last reset.
+		std::uint64_t gpuTimedFrames_{0U}; ///< Frames contained in both sums.
 	};
 
 } // namespace vve::simple

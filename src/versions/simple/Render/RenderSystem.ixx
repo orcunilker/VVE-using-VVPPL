@@ -131,6 +131,9 @@ export namespace vve::simple {
 		[[nodiscard]] auto sceneShadowLightMeta(std::size_t index) const										-> std::optional<ShadowLightMeta>;
 		[[nodiscard]] auto shadowDepthSamples() const																	-> std::span<const RenderShadowDepthSample>;
 		auto setGpuDebugReadback(bool enabled)																			-> void;
+		auto setGpuTimestamps(bool enabled)																			-> void;
+		auto resetGpuTimes()																							-> void;
+		[[nodiscard]] auto gpuTimesMilliseconds() const																-> std::pair<double, double>;
 		[[nodiscard]] auto captureFrameToPng(const std::filesystem::path &output_path)								-> std::expected<void, Error>;
 		[[nodiscard]] auto hasSceneCamera() const																					-> bool;
 		[[nodiscard]] auto hasSceneDirectionalLight() const																	-> bool;
@@ -301,6 +304,12 @@ namespace vve::simple {
 	inline auto RenderSystem::shadowDepthSamples() const -> std::span<const RenderShadowDepthSample> { return renderer_.shadowDepthSamples; }
 	/// @brief Enables the per-frame GPU shadow-depth readback for verification runs.
 	inline auto RenderSystem::setGpuDebugReadback(bool enabled) -> void { renderer_.setGpuDebugReadback(enabled); }
+	/// @brief Measurement branch: writes GPU timestamps around each frame and its post-processing step.
+	inline auto RenderSystem::setGpuTimestamps(bool enabled) -> void { renderer_.setGpuTimestamps(enabled); }
+	/// @brief Measurement branch: clears the summed GPU times.
+	inline auto RenderSystem::resetGpuTimes() -> void { renderer_.resetGpuTimes(); }
+	/// @brief Measurement branch: returns the mean GPU time of a frame and of its post-processing step in milliseconds.
+	inline auto RenderSystem::gpuTimesMilliseconds() const -> std::pair<double, double> { return renderer_.gpuTimesMilliseconds(); }
 	/// @brief Copies the last rendered swapchain image and writes it as a PNG.
 	inline auto RenderSystem::captureFrameToPng(const std::filesystem::path &output_path) -> std::expected<void, Error> {
 		if (!initialized_) { return std::unexpected(Error::not_initialized); }

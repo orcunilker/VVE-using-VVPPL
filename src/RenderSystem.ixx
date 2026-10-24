@@ -127,6 +127,9 @@ export namespace vve {
 		[[nodiscard]] auto hasSceneSpotLight() const																				-> bool;
 		[[nodiscard]] auto shadowDepthSamples() const																	-> Vector<RenderShadowDepthSample>;
 		auto setShadowDepthReadback(bool enabled)																		-> void;
+		auto setGpuTimestamps(bool enabled)																		-> void;
+		auto resetGpuTimes()																						-> void;
+		[[nodiscard]] auto gpuTimesMilliseconds() const															-> std::pair<double, double>;
 		[[nodiscard]] auto captureFrameToPng(const std::filesystem::path &output_path)						-> std::expected<void, Error>;
 		[[nodiscard]] auto renderedFrameCount() const																			-> std::uint64_t;
 		[[nodiscard]] auto renderingFramesPerSecond() const																-> double;

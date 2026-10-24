@@ -25,7 +25,7 @@ CHAINS="direct empty full"
 ERR=$(mktemp)
 trap 'rm -f "$ERR"' EXIT
 
-echo "round,chain,warmup,frames,mean_ms" > "$OUT"
+echo "round,chain,warmup,frames,mean_ms,gpu_frame_ms,gpu_post_ms" > "$OUT"
 
 for round in $(seq 1 "$ROUNDS"); do
 	echo "round $round of $ROUNDS" >&2

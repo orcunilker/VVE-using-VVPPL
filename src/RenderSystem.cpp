@@ -274,6 +274,15 @@ namespace vve {
 	/// @brief Enables reading the rendered shadow-map texel back for every sample; costs a GPU stall per frame.
 	void RenderSystem::setShadowDepthReadback(bool enabled) { impl_.setGpuDebugReadback(enabled); }
 
+	/// @brief Measurement branch: writes GPU timestamps around each frame and its post-processing step.
+	void RenderSystem::setGpuTimestamps(bool enabled) { impl_.setGpuTimestamps(enabled); }
+
+	/// @brief Measurement branch: clears the summed GPU times, for example after the warm-up frames.
+	void RenderSystem::resetGpuTimes() { impl_.resetGpuTimes(); }
+
+	/// @brief Measurement branch: returns the mean GPU time of a frame and of its post-processing step in milliseconds.
+	std::pair<double, double> RenderSystem::gpuTimesMilliseconds() const { return impl_.gpuTimesMilliseconds(); }
+
 	/// @brief Captures a rendered frame to a PNG file using the selected renderer implementation.
 	std::expected<void, Error> RenderSystem::captureFrameToPng(const std::filesystem::path &output_path) {
 		return impl_.captureFrameToPng(output_path);
