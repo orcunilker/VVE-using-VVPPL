@@ -10,6 +10,7 @@ namespace vve{
                 {this, 4500, "INIT", [this](Message& message){ return OnInit(message); }},
                 {this, 2500, "PREPARE_NEXT_FRAME", [this](Message& message){return OnPrepareNextFrame(message); }},
                 {this, 2500, "RECORD_NEXT_FRAME", [this](Message& message){ return OnRecordNextFrame(message); }},
+                {this, 2500, "WINDOW_SIZE", [this](Message& message){ return OnWindowSize(message); }},
                 {this, 1000, "QUIT", [this](Message& message){ return OnQuit(message); }}
             });
     };
@@ -65,6 +66,8 @@ namespace vve{
 
         // Filmgrain next seed
 		m_filmGrain->time += 15;
+
+        return false;
     }
 
     bool PostProcess::OnRecordNextFrame(Message message) {
@@ -122,6 +125,13 @@ namespace vve{
 
         state().m_commandBuffersSubmit.push_back(cmd);
 
+        return false;
+    }
+
+    bool PostProcess::OnWindowSize(Message message) {
+        auto[handle, state] = Renderer::GetState(m_registry);
+        // die Engine hat vor dem Neuaufbau der Swapchain schon auf das Device gewartet (DevRecreateSwapChain)
+        m_pp->resize(state().m_swapChain.m_swapChainExtent.width, state().m_swapChain.m_swapChainExtent.height);
         return false;
     }
 
