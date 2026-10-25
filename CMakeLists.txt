@@ -83,9 +83,9 @@ include_directories (${viennatypelistlibrary_SOURCE_DIR}/include)
 
 #--------------------------------- Vienna Vulkan Post Processing Library ---------------------------------#
 
-# local sibling directory, replace SOURCE_DIR with GIT_REPOSITORY once it is on GitHub
 FetchContent_Declare(viennavulkanpostprocessinglibrary
-                     SOURCE_DIR ${CMAKE_SOURCE_DIR}/../MyVVPP
+                     GIT_REPOSITORY https://github.com/orcunilker/ViennaVulkanPostProcessingLibrary.git
+                     GIT_TAG v1.0
 )
 set(VVPPL_USE_VOLK ON CACHE BOOL "" FORCE) # damit vvppl volk verwendet
 FetchContent_MakeAvailable(viennavulkanpostprocessinglibrary)
