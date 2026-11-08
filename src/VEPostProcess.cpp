@@ -22,14 +22,25 @@ namespace vve{
 
         // ein Command Pool pro Frame in Flight, wie bei den Renderern
         m_commandPools.resize(MAX_FRAMES_IN_FLIGHT);
-        for (auto& pool : m_commandPools) {
+        m_commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vvh::ComCreateCommandPool({
                 .m_surface = state().m_surface,
                 .m_physicalDevice = state().m_physicalDevice,
                 .m_device = state().m_device,
                 .m_queueFamilyIndex = state().m_queueFamilies.graphicsFamily.value(),
-                .m_commandPool = pool
+                .m_commandPool = m_commandPools[i]
             });
+
+            // ein Command Buffer pro Pool, einmal hier allokiert und in jedem Frame neu aufgezeichnet,
+            // damit ihre Zahl gleich bleibt; freigegeben werden sie mit ihrem Pool in OnQuit
+            std::vector<VkCommandBuffer> cmdBuffers(1);
+            vvh::ComCreateCommandBuffers({
+                .m_device = state().m_device,
+                .m_commandPool = m_commandPools[i],
+                .m_commandBuffers = cmdBuffers
+            });
+            m_commandBuffers[i] = cmdBuffers[0];
         }
 
         // die Library bekommt nur Device, Physical Device, die Bildgröße und FramesInFlight
@@ -62,6 +73,8 @@ namespace vve{
     
     bool PostProcess::OnPrepareNextFrame(Message message) {
         auto[handle, state] = Renderer::GetState(m_registry);
+        // die Engine hat schon auf die Fence dieses Frames gewartet (RendererVulkan, Priorität 0), der Reset
+        // bringt seinen Command Buffer in den Anfangszustand zurück, ohne ihn freizugeben
         vkResetCommandPool(state().m_device, m_commandPools[state().m_currentFrame], 0);
 
         // Filmgrain next seed
@@ -75,13 +88,8 @@ namespace vve{
         auto [handle, state] = Renderer::GetState(m_registry);
         VkImage image = state().m_swapChain.m_swapChainImages[state().m_imageIndex];
 
-        std::vector<VkCommandBuffer> cmdBuffers(1);
-        vvh::ComCreateCommandBuffers({
-            .m_device = state().m_device,
-            .m_commandPool = m_commandPools[state().m_currentFrame],
-            .m_commandBuffers = cmdBuffers
-        });
-        auto cmd = cmdBuffers[0];
+        // der Command Buffer dieses Frames, sein Pool wurde in OnPrepareNextFrame zurückgesetzt
+        VkCommandBuffer cmd = m_commandBuffers[state().m_currentFrame];
 
         vvh::ComBeginCommandBuffer({cmd});
 
@@ -142,6 +150,7 @@ namespace vve{
 
         m_pp.reset();
 
+        // gibt auch die Command Buffer frei, die aus den Pools allokiert wurden
         for (auto& pool : m_commandPools) {
             vkDestroyCommandPool(state().m_device, pool, nullptr);
         }

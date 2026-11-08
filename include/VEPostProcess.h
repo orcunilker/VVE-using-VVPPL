@@ -10,6 +10,7 @@ namespace vve {
 
             std::unique_ptr<vvppl::PostProcessing> m_pp;
             std::vector<VkCommandPool> m_commandPools;
+            std::vector<VkCommandBuffer> m_commandBuffers; // einer pro Frame in Flight, aus dem Pool dieses Frames
 
             vvppl::GreyscaleSettings*  m_greyscale{nullptr};
             vvppl::VignetteSettings*   m_vignette{nullptr};
